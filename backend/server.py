@@ -404,7 +404,7 @@ async def get_cities():
     return {"cities": BC_CITIES}
 
 # Listings/Auctions
-@api_router.post("/listings")
+@api_router.post("/listings", status_code=201)
 async def create_listing(listing: AuctionCreate, user: dict = Depends(get_current_user)):
     # Check for active auctions (only one allowed)
     if listing.listing_type == "auction":
