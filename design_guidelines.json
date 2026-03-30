@@ -1,0 +1,103 @@
+{
+  "theme": "Light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "domain_context": "Auction Marketplace exclusively for BC Residents",
+  "color_palette": {
+    "description": "High-contrast Swiss color palette emphasizing strict Black and White structure with urgent, authoritative Red accents.",
+    "css_variables": {
+      "--background": "0 0% 98%",
+      "--foreground": "0 0% 10%",
+      "--card": "0 0% 100%",
+      "--card-foreground": "0 0% 10%",
+      "--popover": "0 0% 100%",
+      "--popover-foreground": "0 0% 10%",
+      "--primary": "358 79% 50%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "0 0% 10%",
+      "--secondary-foreground": "0 0% 100%",
+      "--muted": "0 0% 95%",
+      "--muted-foreground": "0 0% 50%",
+      "--border": "0 0% 90%",
+      "--input": "0 0% 90%",
+      "--ring": "358 79% 50%",
+      "--radius": "0rem"
+    },
+    "brand_hex": {
+      "red": "#E31B23",
+      "black": "#1A1A1A",
+      "grey": "#808080"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Clash Display",
+      "body": "IBM Plex Sans"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter font-black uppercase",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl font-bold",
+      "body": "text-base leading-relaxed",
+      "labels": "text-xs tracking-[0.2em] uppercase font-bold text-muted-foreground",
+      "numbers": "font-mono tabular-nums tracking-tight"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Strict grid hierarchy. Generous spacing. Optical alignment. Sharp corners and high contrast.",
+    "bento_grid": "grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-8",
+    "dashboard_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "container_padding": "p-8 md:p-12 lg:p-16",
+    "border_radius": "rounded-none",
+    "surfaces": "Go cardless where possible. Flat rectangular solid backgrounds. 1px solid borders. No drop shadows. Use grid lines to separate data."
+  },
+  "components": {
+    "buttons": "Square edges, high contrast. Primary: bg-primary text-white hover:bg-primary/90. Secondary: bg-secondary text-white hover:bg-secondary/90.",
+    "inputs": "Shadcn input with rounded-none, border-input focus:border-primary focus:ring-1 focus:ring-primary",
+    "auction_cards": "Flat borders, hover:-translate-y-1 transition-transform. Large image area. Prominent countdown timer in primary red.",
+    "navigation": "Solid background, sticky top, z-50, 1px bottom border. Include Canadian maple leaf logo reference.",
+    "badges": "Square edges. For BC verified: bg-secondary text-white. For Live Auction: bg-primary text-white animate-pulse."
+  },
+  "motion": {
+    "hover": "transition-transform duration-200 ease-out",
+    "entrance": "fade-in slide-in-from-bottom-4 duration-500",
+    "rules": "Respect prefers-reduced-motion. Animations convey urgency (flashing red for ending soon) and state changes."
+  },
+  "media": {
+    "hero_background": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/b315255c-ba1a-48ba-bb14-ed2debb047ec/images/d624dc5759685430fed48ed7924834b37f15fcdf2c0f8e61c948b8a98ba8b308.png",
+      "description": "Abstract geometric red and black pattern, architectural geometry",
+      "usage": "Full-bleed background for hero section with a dark overlay to ensure text contrast."
+    },
+    "featured_product": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/b315255c-ba1a-48ba-bb14-ed2debb047ec/images/b87534996a809267726a90c94efde3e02342d08ad0d564c9809c1a72b9dfc92b.png",
+      "description": "Luxury watch on black reflective surface with red ambient glow",
+      "usage": "Featured high-value auction item placeholder on home page."
+    },
+    "vancouver_skyline": {
+      "url": "https://images.unsplash.com/photo-1559511260-66a654ae982a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwyfHx2YW5jb3V2ZXIlMjBza3lsaW5lfGVufDB8fHx8MTc3NDg5NjE4MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Vancouver skyline with buildings and water",
+      "usage": "Background for 'Local BC Residents Only' section, Verification page, or About page."
+    },
+    "auction_gavel": {
+      "url": "https://images.pexels.com/photos/5668473/pexels-photo-5668473.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Wooden gavel on desk",
+      "usage": "Thumbnail for 'How it Works' or placeholder for administrative/legal sections."
+    },
+    "bc_nature": {
+      "url": "https://images.pexels.com/photos/36155134/pexels-photo-36155134.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Scenic view of lush green forests and mountains",
+      "usage": "Category placeholder for 'Outdoors & Recreation' or local listings."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Load 'Clash Display' and 'IBM Plex Sans' fonts via Google Fonts or Fontshare in the HTML head.",
+    "Use '@phosphor-icons/react' for all iconography to match the technical, high-contrast aesthetic.",
+    "Apply the '--radius: 0rem' rule strictly across Shadcn components to enforce the Swiss architectural look.",
+    "Ensure all buttons, interactive elements, and forms have data-testid attributes (e.g., data-testid='place-bid-button').",
+    "Bidding countdowns MUST use tabular-nums utility so numbers don't shift horizontally during countdowns.",
+    "Implement bento grid layouts for the featured auctions layout, intentionally spanning different columns for asymmetry (e.g., col-span-4 vs col-span-2).",
+    "The Hero Section Image must have an overlay of bg-black/60 or bg-white/70 to ensure text contrast (APCA compliant).",
+    "Use pure HTML+Tailwind for marketing and landing pages to allow free-form layouts. Use heavily customized Shadcn UI only for functional blocks (forms, dashboard tables, modals).",
+    "Do NOT use placeholder text or empty URLs for images; map the provided media URLs specifically to their intended sections."
+  ]
+}
