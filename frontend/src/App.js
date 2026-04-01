@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
 
@@ -15,6 +15,8 @@ import BrowseAuctions from "./pages/BrowseAuctions";
 import Verification from "./pages/Verification";
 import AdminPanel from "./pages/AdminPanel";
 import SellerDashboard from "./pages/SellerDashboard";
+import Watchlist from "./pages/Watchlist";
+import UserProfile from "./pages/UserProfile";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -43,9 +45,14 @@ export function formatApiErrorDetail(detail) {
   return String(detail);
 }
 
+// Format currency
+export function formatCAD(amount) {
+  return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amount || 0);
+}
+
 // Auth Provider
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // null = checking, false = not authenticated
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
@@ -132,6 +139,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/auctions" element={<BrowseAuctions />} />
           <Route path="/auctions/:id" element={<AuctionDetail />} />
+          <Route path="/users/:id" element={<UserProfile />} />
           <Route
             path="/dashboard"
             element={
@@ -145,6 +153,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SellerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/watchlist"
+            element={
+              <ProtectedRoute>
+                <Watchlist />
               </ProtectedRoute>
             }
           />

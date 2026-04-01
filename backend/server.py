@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, BackgroundTasks
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import socketio
@@ -19,8 +19,8 @@ import cloudinary
 import cloudinary.utils
 import time
 from bson import ObjectId
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import asyncio
+import math
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -31,7 +31,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Cloudinary configuration (MOCK - Replace with real credentials)
+# Cloudinary configuration (MOCK)
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "mock_cloud_name"),
     api_key=os.getenv("CLOUDINARY_API_KEY", "mock_api_key"),
@@ -110,6 +110,13 @@ def is_valid_bc_postal_code(postal_code: str) -> bool:
         return False
     return cleaned[0] in BC_POSTAL_PREFIXES
 
+# Canadian Provinces
+PROVINCES = [
+    "British Columbia", "Alberta", "Saskatchewan", "Manitoba", "Ontario",
+    "Quebec", "New Brunswick", "Nova Scotia", "Prince Edward Island",
+    "Newfoundland and Labrador", "Yukon", "Northwest Territories", "Nunavut"
+]
+
 # BC Cities
 BC_CITIES = [
     "Vancouver", "Victoria", "Surrey", "Burnaby", "Richmond", "Abbotsford",
@@ -119,6 +126,41 @@ BC_CITIES = [
     "Campbell River", "Mission", "West Vancouver", "Langford", "White Rock"
 ]
 
+# Categories with subcategories
+CATEGORIES = {
+    "Electronics": ["Computers", "Smartphones", "Tablets", "Cameras", "Audio", "Gaming", "Accessories"],
+    "Vehicles": ["Cars", "Motorcycles", "Boats", "RVs", "Parts & Accessories"],
+    "Collectibles & Art": ["Antiques", "Coins", "Stamps", "Trading Cards", "Art", "Memorabilia"],
+    "Fashion": ["Men's Clothing", "Women's Clothing", "Shoes", "Bags", "Watches", "Jewelry"],
+    "Home & Garden": ["Furniture", "Appliances", "Decor", "Tools", "Outdoor", "Kitchen"],
+    "Sports & Outdoors": ["Fitness", "Cycling", "Camping", "Fishing", "Golf", "Winter Sports"],
+    "Toys & Games": ["Action Figures", "Board Games", "Video Games", "Dolls", "LEGO"],
+    "Books & Media": ["Books", "Music", "Movies", "Magazines"],
+    "Jewelry & Watches": ["Fine Jewelry", "Fashion Jewelry", "Luxury Watches", "Vintage"],
+    "Musical Instruments": ["Guitars", "Pianos", "Drums", "Wind", "DJ Equipment"],
+    "Tools & Equipment": ["Power Tools", "Hand Tools", "Industrial", "Safety Equipment"],
+    "Other": ["Miscellaneous"]
+}
+
+# Bid Increments based on current price
+def get_bid_increment(current_price: float) -> float:
+    if current_price < 25:
+        return 1
+    elif current_price < 100:
+        return 5
+    elif current_price < 250:
+        return 10
+    elif current_price < 500:
+        return 25
+    elif current_price < 1000:
+        return 50
+    elif current_price < 2500:
+        return 100
+    elif current_price < 5000:
+        return 250
+    else:
+        return 500
+
 # Pydantic Models
 class UserRegister(BaseModel):
     email: EmailStr
@@ -126,49 +168,63 @@ class UserRegister(BaseModel):
     full_name: str
     city: str
     postal_code: str
+    province: str = "British Columbia"
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-class UserResponse(BaseModel):
-    id: str
-    email: str
-    full_name: str
-    city: str
-    role: str
-    verification_status: str
-    created_at: str
-
 class AuctionCreate(BaseModel):
     title: str
     category: str
+    subcategory: Optional[str] = None
     description: str
     city: str
+    province: str = "British Columbia"
     starting_bid: float
-    bid_increment: float
-    duration_hours: Literal[24, 48, 72]
+    reserve_price: Optional[float] = None
+    buy_it_now_price: Optional[float] = None
+    duration_days: Literal[1, 3, 5, 7, 10] = 7
     images: List[str] = []
-    listing_type: Literal["auction", "marketplace"] = "auction"
-    fixed_price: Optional[float] = None
+    condition: Literal["new", "like_new", "good", "fair", "poor"] = "good"
+    shipping_cost: float = 0
+    shipping_from: str = "British Columbia"
+    accepts_best_offer: bool = False
+    listing_type: Literal["auction", "fixed_price", "auction_bin"] = "auction"
 
 class BidCreate(BaseModel):
-    amount: float
+    max_bid: float  # Proxy bidding - user's maximum bid
 
-class VerificationSubmit(BaseModel):
-    government_id_url: str
-    selfie_url: str
+class SniperBidCreate(BaseModel):
+    max_bid: float
+    minutes_before_end: Literal[1, 2, 3, 5, 10] = 5
+
+class BestOfferCreate(BaseModel):
+    offer_amount: float
+    message: Optional[str] = None
+
+class FeedbackCreate(BaseModel):
+    rating: Literal["positive", "neutral", "negative"]
+    comment: str
+
+class SavedSearchCreate(BaseModel):
+    name: str
+    query: str
+    category: Optional[str] = None
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
 
 class ListingUpdate(BaseModel):
-    status: Literal["pending", "approved", "rejected", "active", "ended", "completed"]
+    status: Optional[Literal["pending", "approved", "rejected", "active", "ended", "sold", "unsold"]] = None
 
 class UserUpdate(BaseModel):
     verification_status: Optional[Literal["unverified", "pending", "verified"]] = None
     is_suspended: Optional[bool] = None
     is_banned: Optional[bool] = None
 
-class MessageCreate(BaseModel):
-    content: str
+class VerificationSubmit(BaseModel):
+    government_id_url: str
+    selfie_url: str
 
 class ReportCreate(BaseModel):
     reason: str
@@ -176,7 +232,7 @@ class ReportCreate(BaseModel):
 
 # Socket.IO setup
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
-fastapi_app = FastAPI(title="BidCa.ca API")
+fastapi_app = FastAPI(title="BidCa.ca API - Full Auction Platform")
 
 @sio.event
 async def connect(sid, environ):
@@ -199,11 +255,20 @@ async def leave_auction(sid, data):
     if auction_id:
         await sio.leave_room(sid, f"auction_{auction_id}")
 
+@sio.event
+async def join_user_notifications(sid, data):
+    user_id = data.get("user_id")
+    if user_id:
+        await sio.enter_room(sid, f"user_{user_id}")
+
 async def broadcast_bid_update(auction_id: str, bid_data: dict):
     await sio.emit('bid_update', bid_data, room=f"auction_{auction_id}")
 
 async def broadcast_auction_end(auction_id: str, data: dict):
     await sio.emit('auction_ended', data, room=f"auction_{auction_id}")
+
+async def send_user_notification(user_id: str, notification: dict):
+    await sio.emit('notification', notification, room=f"user_{user_id}")
 
 # Create API router
 api_router = APIRouter(prefix="/api")
@@ -211,7 +276,7 @@ api_router = APIRouter(prefix="/api")
 # Health check
 @api_router.get("/")
 async def root():
-    return {"message": "BidCa.ca API", "status": "running"}
+    return {"message": "BidCa.ca API - Full Auction Platform", "status": "running"}
 
 @api_router.get("/health")
 async def health():
@@ -222,36 +287,43 @@ async def health():
 async def register(user_data: UserRegister, response: Response):
     email = user_data.email.lower()
     
-    # Validate BC postal code
     if not is_valid_bc_postal_code(user_data.postal_code):
         raise HTTPException(status_code=400, detail="Only British Columbia postal codes are accepted (starting with V)")
     
-    # Check if email exists
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
     user_doc = {
         "email": email,
         "password_hash": hash_password(user_data.password),
         "full_name": user_data.full_name,
         "city": user_data.city,
         "postal_code": user_data.postal_code.upper().replace(" ", ""),
+        "province": user_data.province,
         "role": "user",
         "verification_status": "unverified",
         "verification_badge": False,
-        "successful_sales": 0,
-        "failed_purchases": 0,
         "is_suspended": False,
         "is_banned": False,
+        # Seller stats
+        "seller_rating": 0,
+        "total_ratings": 0,
+        "positive_ratings": 0,
+        "neutral_ratings": 0,
+        "negative_ratings": 0,
+        "total_sales": 0,
+        "total_sales_amount": 0,
+        # Buyer stats
+        "total_purchases": 0,
+        "total_bids_placed": 0,
+        "auctions_won": 0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
     result = await db.users.insert_one(user_doc)
     user_id = str(result.inserted_id)
     
-    # Create tokens
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
@@ -271,7 +343,6 @@ async def register(user_data: UserRegister, response: Response):
 async def login(credentials: UserLogin, response: Response, request: Request):
     email = credentials.email.lower()
     
-    # Brute force check
     client_ip = request.client.host if request.client else "unknown"
     identifier = f"{client_ip}:{email}"
     
@@ -283,7 +354,6 @@ async def login(credentials: UserLogin, response: Response, request: Request):
         else:
             await db.login_attempts.delete_one({"identifier": identifier})
     
-    # Find user
     user = await db.users.find_one({"email": email})
     if not user:
         await increment_login_attempts(identifier)
@@ -299,7 +369,6 @@ async def login(credentials: UserLogin, response: Response, request: Request):
         await increment_login_attempts(identifier)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Clear login attempts on success
     await db.login_attempts.delete_one({"identifier": identifier})
     
     user_id = str(user["_id"])
@@ -316,8 +385,18 @@ async def login(credentials: UserLogin, response: Response, request: Request):
         "city": user["city"],
         "role": user["role"],
         "verification_status": user["verification_status"],
-        "verification_badge": user.get("verification_badge", False)
+        "verification_badge": user.get("verification_badge", False),
+        "seller_rating": user.get("seller_rating", 0),
+        "total_ratings": user.get("total_ratings", 0),
+        "positive_percentage": calculate_positive_percentage(user)
     }
+
+def calculate_positive_percentage(user: dict) -> float:
+    total = user.get("total_ratings", 0)
+    if total == 0:
+        return 100.0
+    positive = user.get("positive_ratings", 0)
+    return round((positive / total) * 100, 1)
 
 async def increment_login_attempts(identifier: str):
     attempts = await db.login_attempts.find_one({"identifier": identifier})
@@ -358,26 +437,16 @@ async def refresh_token(request: Request, response: Response):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-# Cloudinary signature endpoint
+# Cloudinary signature
 @api_router.get("/cloudinary/signature")
 async def get_cloudinary_signature(
     resource_type: str = Query("image", enum=["image", "video"]),
     folder: str = "bidca_uploads",
     user: dict = Depends(get_current_user)
 ):
-    ALLOWED_FOLDERS = ("bidca_uploads/", "users/", "listings/", "verifications/")
-    if not any(folder.startswith(f) or folder == f.rstrip('/') for f in ALLOWED_FOLDERS):
-        folder = "bidca_uploads"
-    
     timestamp = int(time.time())
-    params = {
-        "timestamp": timestamp,
-        "folder": folder,
-        "resource_type": resource_type
-    }
-    
+    params = {"timestamp": timestamp, "folder": folder, "resource_type": resource_type}
     signature = cloudinary.utils.api_sign_request(params, os.getenv("CLOUDINARY_API_SECRET"))
-    
     return {
         "signature": signature,
         "timestamp": timestamp,
@@ -388,13 +457,6 @@ async def get_cloudinary_signature(
     }
 
 # Categories
-CATEGORIES = [
-    "Electronics", "Vehicles", "Furniture", "Clothing & Accessories",
-    "Sports & Outdoors", "Home & Garden", "Collectibles & Art",
-    "Jewelry & Watches", "Tools & Equipment", "Musical Instruments",
-    "Books & Media", "Toys & Games", "Other"
-]
-
 @api_router.get("/categories")
 async def get_categories():
     return {"categories": CATEGORIES}
@@ -403,102 +465,192 @@ async def get_categories():
 async def get_cities():
     return {"cities": BC_CITIES}
 
+@api_router.get("/provinces")
+async def get_provinces():
+    return {"provinces": PROVINCES}
+
+# Popular search keywords
+@api_router.get("/popular-keywords")
+async def get_popular_keywords():
+    # In production, this would be based on actual search analytics
+    keywords = [
+        "iPhone", "PS5", "MacBook", "Nintendo Switch", "AirPods",
+        "Vintage Watch", "Hockey Cards", "Mountain Bike", "Camera",
+        "Antique Furniture", "Gold Coins", "Electric Guitar"
+    ]
+    return {"keywords": keywords}
+
 # Listings/Auctions
 @api_router.post("/listings", status_code=201)
 async def create_listing(listing: AuctionCreate, user: dict = Depends(get_current_user)):
-    # Check for active auctions (only one allowed)
-    if listing.listing_type == "auction":
-        active_auction = await db.listings.find_one({
-            "seller_id": user["_id"],
-            "listing_type": "auction",
-            "status": {"$in": ["pending", "active"]}
-        })
-        if active_auction:
-            raise HTTPException(status_code=400, detail="You can only have one active auction at a time")
+    # Validate reserve price
+    if listing.reserve_price and listing.reserve_price < listing.starting_bid:
+        raise HTTPException(status_code=400, detail="Reserve price must be higher than starting bid")
     
-    end_time = datetime.now(timezone.utc) + timedelta(hours=listing.duration_hours)
+    # Validate BIN price
+    if listing.buy_it_now_price and listing.buy_it_now_price <= listing.starting_bid:
+        raise HTTPException(status_code=400, detail="Buy It Now price must be higher than starting bid")
+    
+    end_time = datetime.now(timezone.utc) + timedelta(days=listing.duration_days)
     
     listing_doc = {
         "title": listing.title,
         "category": listing.category,
+        "subcategory": listing.subcategory,
         "description": listing.description,
         "city": listing.city,
+        "province": listing.province,
         "images": listing.images,
+        "condition": listing.condition,
         "listing_type": listing.listing_type,
+        # Pricing
         "starting_bid": listing.starting_bid,
         "current_bid": listing.starting_bid,
-        "bid_increment": listing.bid_increment,
-        "fixed_price": listing.fixed_price,
-        "duration_hours": listing.duration_hours,
+        "reserve_price": listing.reserve_price,
+        "reserve_met": False if listing.reserve_price else True,
+        "buy_it_now_price": listing.buy_it_now_price,
+        "accepts_best_offer": listing.accepts_best_offer,
+        # Shipping
+        "shipping_cost": listing.shipping_cost,
+        "shipping_from": listing.shipping_from,
+        # Timing
+        "duration_days": listing.duration_days,
+        "start_time": datetime.now(timezone.utc).isoformat(),
         "end_time": end_time.isoformat(),
+        # Seller info
         "seller_id": user["_id"],
         "seller_name": user["full_name"],
         "seller_city": user["city"],
         "seller_verified": user.get("verification_badge", False),
-        "status": "pending",  # Requires admin approval
+        "seller_rating": user.get("seller_rating", 0),
+        "seller_total_ratings": user.get("total_ratings", 0),
+        "seller_positive_pct": calculate_positive_percentage(user),
+        # Bidding
         "bid_count": 0,
+        "bid_increment": get_bid_increment(listing.starting_bid),
         "highest_bidder_id": None,
         "highest_bidder_name": None,
+        "highest_bidder_max_bid": None,  # For proxy bidding
+        # Status
+        "status": "pending",
         "winner_id": None,
+        "sold_price": None,
+        "watchers_count": 0,
+        "views_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
     result = await db.listings.insert_one(listing_doc)
     listing_doc["_id"] = str(result.inserted_id)
-    listing_doc.pop("seller_id", None)
+    listing_doc["seller_id"] = str(listing_doc["seller_id"])
     
     return listing_doc
 
 @api_router.get("/listings")
 async def get_listings(
+    q: Optional[str] = None,
     category: Optional[str] = None,
+    subcategory: Optional[str] = None,
+    condition: Optional[str] = None,
+    province: Optional[str] = None,
     city: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
     listing_type: Optional[str] = None,
+    seller_rating: Optional[float] = None,
+    free_shipping: Optional[bool] = None,
     status: str = "active",
-    search: Optional[str] = None,
+    sort: str = "ending_soonest",
     page: int = 1,
-    limit: int = 20
+    limit: int = 24
 ):
     query = {"status": status}
+    
+    if q:
+        query["$or"] = [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"description": {"$regex": q, "$options": "i"}}
+        ]
     if category:
         query["category"] = category
+    if subcategory:
+        query["subcategory"] = subcategory
+    if condition:
+        query["condition"] = condition
+    if province:
+        query["province"] = province
     if city:
         query["city"] = city
+    if min_price is not None:
+        query["current_bid"] = {"$gte": min_price}
+    if max_price is not None:
+        query["current_bid"] = {**query.get("current_bid", {}), "$lte": max_price}
     if listing_type:
         query["listing_type"] = listing_type
-    if search:
-        query["$or"] = [
-            {"title": {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}}
-        ]
+    if seller_rating:
+        query["seller_rating"] = {"$gte": seller_rating}
+    if free_shipping:
+        query["shipping_cost"] = 0
+    
+    # Sorting
+    sort_options = {
+        "ending_soonest": [("end_time", 1)],
+        "newly_listed": [("created_at", -1)],
+        "lowest_price": [("current_bid", 1)],
+        "highest_price": [("current_bid", -1)],
+        "most_bids": [("bid_count", -1)]
+    }
+    sort_order = sort_options.get(sort, [("end_time", 1)])
     
     skip = (page - 1) * limit
-    cursor = db.listings.find(query, {"_id": 1, "title": 1, "category": 1, "city": 1, "images": 1,
-                                       "current_bid": 1, "starting_bid": 1, "fixed_price": 1,
-                                       "listing_type": 1, "end_time": 1, "bid_count": 1,
-                                       "seller_name": 1, "seller_verified": 1, "status": 1})
-    cursor.skip(skip).limit(limit).sort("created_at", -1)
+    cursor = db.listings.find(query).sort(sort_order).skip(skip).limit(limit)
     
     listings = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
+        doc["seller_id"] = str(doc["seller_id"])
         listings.append(doc)
     
     total = await db.listings.count_documents(query)
     
-    return {"listings": listings, "total": total, "page": page, "pages": (total + limit - 1) // limit}
+    return {
+        "listings": listings,
+        "total": total,
+        "page": page,
+        "pages": math.ceil(total / limit) if total > 0 else 1
+    }
 
 @api_router.get("/listings/featured")
 async def get_featured_listings():
+    # Get popular auctions (most bids, ending soon)
     cursor = db.listings.find(
-        {"status": "active", "listing_type": "auction"},
-        {"_id": 1, "title": 1, "category": 1, "city": 1, "images": 1,
-         "current_bid": 1, "end_time": 1, "bid_count": 1, "seller_verified": 1}
-    ).sort("bid_count", -1).limit(6)
+        {"status": "active", "listing_type": {"$in": ["auction", "auction_bin"]}}
+    ).sort([("bid_count", -1), ("end_time", 1)]).limit(8)
     
     listings = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
+        doc["seller_id"] = str(doc["seller_id"])
+        listings.append(doc)
+    
+    return {"listings": listings}
+
+@api_router.get("/listings/ending-soon")
+async def get_ending_soon():
+    # Auctions ending in next 6 hours
+    cutoff = datetime.now(timezone.utc) + timedelta(hours=6)
+    cursor = db.listings.find(
+        {
+            "status": "active",
+            "listing_type": {"$in": ["auction", "auction_bin"]},
+            "end_time": {"$lte": cutoff.isoformat()}
+        }
+    ).sort("end_time", 1).limit(12)
+    
+    listings = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["seller_id"] = str(doc["seller_id"])
         listings.append(doc)
     
     return {"listings": listings}
@@ -515,30 +667,70 @@ async def get_listing(listing_id: str, request: Request):
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     
+    # Increment view count
+    await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"views_count": 1}})
+    
     listing["_id"] = str(listing["_id"])
     listing["seller_id"] = str(listing["seller_id"])
     
-    # Get bid history (masked usernames)
-    bids_cursor = db.bids.find({"listing_id": listing_id}).sort("created_at", -1).limit(20)
+    # Get bid history (masked usernames for non-sellers)
+    bids_cursor = db.bids.find({"listing_id": listing_id}).sort("created_at", -1).limit(50)
     bids = []
     async for bid in bids_cursor:
-        masked_name = bid["bidder_name"][:2] + "***" if len(bid["bidder_name"]) > 2 else "***"
+        bidder_name = bid["bidder_name"]
+        # Mask username unless user is the seller or the bidder
+        if user and (listing["seller_id"] == user["_id"] or bid["bidder_id"] == user["_id"]):
+            masked_name = bidder_name
+        else:
+            masked_name = bidder_name[:1] + "***" + bidder_name[-1:] if len(bidder_name) > 2 else "***"
         bids.append({
             "amount": bid["amount"],
             "bidder_name": masked_name,
-            "created_at": bid["created_at"]
+            "created_at": bid["created_at"],
+            "is_auto_bid": bid.get("is_auto_bid", False)
         })
     
     listing["bid_history"] = bids
     
-    # Check if user is the seller
-    if user and listing["seller_id"] == user["_id"]:
-        listing["is_seller"] = True
+    # Check if user is watching
+    if user:
+        watching = await db.watchlist.find_one({"user_id": user["_id"], "listing_id": listing_id})
+        listing["is_watching"] = watching is not None
+        listing["is_seller"] = listing["seller_id"] == user["_id"]
+    else:
+        listing["is_watching"] = False
+        listing["is_seller"] = False
+    
+    # Get related items
+    related_cursor = db.listings.find(
+        {"category": listing["category"], "status": "active", "_id": {"$ne": ObjectId(listing_id)}}
+    ).limit(6)
+    related = []
+    async for doc in related_cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["seller_id"] = str(doc["seller_id"])
+        related.append(doc)
+    listing["related_items"] = related
+    
+    # Get seller info
+    seller = await db.users.find_one({"_id": ObjectId(listing["seller_id"])})
+    if seller:
+        listing["seller_info"] = {
+            "full_name": seller["full_name"],
+            "city": seller["city"],
+            "seller_rating": seller.get("seller_rating", 0),
+            "total_ratings": seller.get("total_ratings", 0),
+            "positive_percentage": calculate_positive_percentage(seller),
+            "verification_badge": seller.get("verification_badge", False),
+            "total_sales": seller.get("total_sales", 0),
+            "member_since": seller.get("created_at")
+        }
     
     return listing
 
+# Proxy Bidding System
 @api_router.post("/listings/{listing_id}/bid")
-async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(get_current_user)):
+async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(get_current_user), background_tasks: BackgroundTasks = None):
     try:
         listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     except:
@@ -550,8 +742,8 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(get_cu
     if listing["status"] != "active":
         raise HTTPException(status_code=400, detail="This auction is not active")
     
-    if listing["listing_type"] != "auction":
-        raise HTTPException(status_code=400, detail="This is not an auction listing")
+    if listing["listing_type"] == "fixed_price":
+        raise HTTPException(status_code=400, detail="This is a fixed-price listing")
     
     # Check if auction has ended
     end_time = datetime.fromisoformat(listing["end_time"])
@@ -562,83 +754,647 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(get_cu
     if str(listing["seller_id"]) == user["_id"]:
         raise HTTPException(status_code=400, detail="You cannot bid on your own auction")
     
-    min_bid = listing["current_bid"] + listing["bid_increment"]
-    if bid.amount < min_bid:
+    current_bid = listing["current_bid"]
+    bid_increment = get_bid_increment(current_bid)
+    min_bid = current_bid + bid_increment if listing["bid_count"] > 0 else current_bid
+    
+    if bid.max_bid < min_bid:
         raise HTTPException(status_code=400, detail=f"Minimum bid is ${min_bid:.2f}")
+    
+    # Proxy bidding logic
+    current_max_bid = listing.get("highest_bidder_max_bid", 0) or 0
+    current_highest_bidder = listing.get("highest_bidder_id")
+    
+    if current_highest_bidder and str(current_highest_bidder) == user["_id"]:
+        # User is already highest bidder, just update their max
+        if bid.max_bid <= current_max_bid:
+            raise HTTPException(status_code=400, detail="Your new maximum must be higher than your current maximum bid")
+        
+        await db.listings.update_one(
+            {"_id": ObjectId(listing_id)},
+            {"$set": {"highest_bidder_max_bid": bid.max_bid}}
+        )
+        return {"message": "Maximum bid updated", "current_bid": current_bid, "your_max_bid": bid.max_bid}
+    
+    # Calculate new current bid
+    if current_max_bid > 0:
+        if bid.max_bid > current_max_bid:
+            # New bidder wins, set price to previous max + increment
+            new_current_bid = min(current_max_bid + bid_increment, bid.max_bid)
+            new_highest_bidder = user["_id"]
+            new_max_bid = bid.max_bid
+            
+            # Notify outbid user
+            if current_highest_bidder:
+                await create_notification(
+                    str(current_highest_bidder),
+                    "outbid",
+                    f"You've been outbid on '{listing['title']}'! Current bid: ${new_current_bid:.2f}",
+                    listing_id
+                )
+        else:
+            # Current bidder stays, auto-bid up to new bid
+            new_current_bid = min(bid.max_bid + bid_increment, current_max_bid)
+            new_highest_bidder = current_highest_bidder
+            new_max_bid = current_max_bid
+            
+            # Notify the new bidder they were outbid immediately
+            await create_notification(
+                user["_id"],
+                "outbid",
+                f"You were outbid on '{listing['title']}'. Current bid: ${new_current_bid:.2f}",
+                listing_id
+            )
+    else:
+        new_current_bid = listing["starting_bid"]
+        new_highest_bidder = user["_id"]
+        new_max_bid = bid.max_bid
+    
+    # Check reserve price
+    reserve_met = True
+    if listing.get("reserve_price"):
+        reserve_met = new_current_bid >= listing["reserve_price"]
     
     # Create bid record
     bid_doc = {
         "listing_id": listing_id,
         "bidder_id": user["_id"],
         "bidder_name": user["full_name"],
-        "amount": bid.amount,
+        "amount": new_current_bid,
+        "max_bid": bid.max_bid,
+        "is_auto_bid": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.bids.insert_one(bid_doc)
     
     # Update listing
+    new_bid_increment = get_bid_increment(new_current_bid)
     await db.listings.update_one(
         {"_id": ObjectId(listing_id)},
         {
             "$set": {
-                "current_bid": bid.amount,
-                "highest_bidder_id": user["_id"],
-                "highest_bidder_name": user["full_name"]
+                "current_bid": new_current_bid,
+                "bid_increment": new_bid_increment,
+                "highest_bidder_id": new_highest_bidder,
+                "highest_bidder_name": user["full_name"] if str(new_highest_bidder) == user["_id"] else listing.get("highest_bidder_name"),
+                "highest_bidder_max_bid": new_max_bid,
+                "reserve_met": reserve_met
             },
             "$inc": {"bid_count": 1}
         }
     )
     
-    # Create notification for outbid user
-    if listing.get("highest_bidder_id") and str(listing["highest_bidder_id"]) != user["_id"]:
-        await create_notification(
-            str(listing["highest_bidder_id"]),
-            "outbid",
-            f"You've been outbid on {listing['title']}",
-            listing_id
-        )
+    # Update user stats
+    await db.users.update_one({"_id": ObjectId(user["_id"])}, {"$inc": {"total_bids_placed": 1}})
     
-    # Broadcast bid update via WebSocket
+    # Broadcast bid update
     await broadcast_bid_update(listing_id, {
         "listing_id": listing_id,
-        "current_bid": bid.amount,
+        "current_bid": new_current_bid,
         "bid_count": listing["bid_count"] + 1,
-        "bidder_name": user["full_name"][:2] + "***"
+        "bid_increment": new_bid_increment,
+        "reserve_met": reserve_met,
+        "bidder_name": user["full_name"][:1] + "***"
     })
     
-    return {"message": "Bid placed successfully", "current_bid": bid.amount}
+    return {
+        "message": "Bid placed successfully",
+        "current_bid": new_current_bid,
+        "your_max_bid": bid.max_bid,
+        "is_winning": str(new_highest_bidder) == user["_id"],
+        "reserve_met": reserve_met
+    }
+
+# Sniper Bid
+@api_router.post("/listings/{listing_id}/sniper-bid")
+async def create_sniper_bid(listing_id: str, sniper: SniperBidCreate, user: dict = Depends(get_current_user)):
+    try:
+        listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if not listing or listing["status"] != "active":
+        raise HTTPException(status_code=400, detail="Listing not available")
+    
+    if str(listing["seller_id"]) == user["_id"]:
+        raise HTTPException(status_code=400, detail="You cannot bid on your own auction")
+    
+    end_time = datetime.fromisoformat(listing["end_time"])
+    execute_time = end_time - timedelta(minutes=sniper.minutes_before_end)
+    
+    if execute_time <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Sniper bid time has already passed")
+    
+    sniper_doc = {
+        "listing_id": listing_id,
+        "user_id": user["_id"],
+        "max_bid": sniper.max_bid,
+        "minutes_before_end": sniper.minutes_before_end,
+        "execute_at": execute_time.isoformat(),
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.sniper_bids.insert_one(sniper_doc)
+    
+    return {"message": f"Sniper bid scheduled for {sniper.minutes_before_end} minutes before auction end"}
+
+# Buy It Now
+@api_router.post("/listings/{listing_id}/buy-now")
+async def buy_it_now(listing_id: str, user: dict = Depends(get_current_user)):
+    try:
+        listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if listing["status"] != "active":
+        raise HTTPException(status_code=400, detail="This listing is not active")
+    
+    if not listing.get("buy_it_now_price"):
+        raise HTTPException(status_code=400, detail="This listing does not have a Buy It Now option")
+    
+    if str(listing["seller_id"]) == user["_id"]:
+        raise HTTPException(status_code=400, detail="You cannot buy your own listing")
+    
+    bin_price = listing["buy_it_now_price"]
+    
+    # End auction immediately
+    await db.listings.update_one(
+        {"_id": ObjectId(listing_id)},
+        {
+            "$set": {
+                "status": "sold",
+                "winner_id": user["_id"],
+                "sold_price": bin_price,
+                "end_time": datetime.now(timezone.utc).isoformat(),
+                "sold_via": "buy_it_now"
+            }
+        }
+    )
+    
+    # Create transaction record
+    transaction = {
+        "listing_id": listing_id,
+        "seller_id": str(listing["seller_id"]),
+        "buyer_id": user["_id"],
+        "amount": bin_price,
+        "type": "buy_it_now",
+        "status": "pending_payment",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.transactions.insert_one(transaction)
+    
+    # Notify seller
+    await create_notification(
+        str(listing["seller_id"]),
+        "item_sold",
+        f"Your item '{listing['title']}' was sold via Buy It Now for ${bin_price:.2f}!",
+        listing_id
+    )
+    
+    # Update stats
+    await db.users.update_one({"_id": ObjectId(user["_id"])}, {"$inc": {"total_purchases": 1, "auctions_won": 1}})
+    await db.users.update_one(
+        {"_id": listing["seller_id"]},
+        {"$inc": {"total_sales": 1, "total_sales_amount": bin_price}}
+    )
+    
+    # Broadcast auction end
+    await broadcast_auction_end(listing_id, {"listing_id": listing_id, "sold_via": "buy_it_now", "price": bin_price})
+    
+    return {"message": "Purchase successful!", "price": bin_price}
+
+# Best Offer
+@api_router.post("/listings/{listing_id}/best-offer")
+async def submit_best_offer(listing_id: str, offer: BestOfferCreate, user: dict = Depends(get_current_user)):
+    try:
+        listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if not listing or not listing.get("accepts_best_offer"):
+        raise HTTPException(status_code=400, detail="This listing does not accept offers")
+    
+    if str(listing["seller_id"]) == user["_id"]:
+        raise HTTPException(status_code=400, detail="You cannot make an offer on your own listing")
+    
+    offer_doc = {
+        "listing_id": listing_id,
+        "buyer_id": user["_id"],
+        "buyer_name": user["full_name"],
+        "amount": offer.offer_amount,
+        "message": offer.message,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    result = await db.offers.insert_one(offer_doc)
+    
+    # Notify seller
+    await create_notification(
+        str(listing["seller_id"]),
+        "new_offer",
+        f"New offer of ${offer.offer_amount:.2f} on '{listing['title']}'",
+        listing_id
+    )
+    
+    return {"message": "Offer submitted", "offer_id": str(result.inserted_id)}
+
+@api_router.put("/offers/{offer_id}/respond")
+async def respond_to_offer(
+    offer_id: str,
+    action: Literal["accept", "decline", "counter"],
+    counter_amount: Optional[float] = None,
+    user: dict = Depends(get_current_user)
+):
+    try:
+        offer = await db.offers.find_one({"_id": ObjectId(offer_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    listing = await db.listings.find_one({"_id": ObjectId(offer["listing_id"])})
+    if str(listing["seller_id"]) != user["_id"]:
+        raise HTTPException(status_code=403, detail="Only the seller can respond to offers")
+    
+    if action == "accept":
+        # Accept offer and end listing
+        await db.offers.update_one({"_id": ObjectId(offer_id)}, {"$set": {"status": "accepted"}})
+        await db.listings.update_one(
+            {"_id": ObjectId(offer["listing_id"])},
+            {
+                "$set": {
+                    "status": "sold",
+                    "winner_id": offer["buyer_id"],
+                    "sold_price": offer["amount"],
+                    "sold_via": "best_offer"
+                }
+            }
+        )
+        
+        await create_notification(
+            offer["buyer_id"],
+            "offer_accepted",
+            f"Your offer of ${offer['amount']:.2f} was accepted!",
+            offer["listing_id"]
+        )
+        
+    elif action == "decline":
+        await db.offers.update_one({"_id": ObjectId(offer_id)}, {"$set": {"status": "declined"}})
+        await create_notification(
+            offer["buyer_id"],
+            "offer_declined",
+            f"Your offer of ${offer['amount']:.2f} was declined",
+            offer["listing_id"]
+        )
+        
+    elif action == "counter":
+        if not counter_amount:
+            raise HTTPException(status_code=400, detail="Counter amount required")
+        await db.offers.update_one(
+            {"_id": ObjectId(offer_id)},
+            {"$set": {"status": "countered", "counter_amount": counter_amount}}
+        )
+        await create_notification(
+            offer["buyer_id"],
+            "counter_offer",
+            f"Seller countered with ${counter_amount:.2f}",
+            offer["listing_id"]
+        )
+    
+    return {"message": f"Offer {action}ed"}
+
+# Watchlist
+@api_router.post("/listings/{listing_id}/watch")
+async def watch_listing(listing_id: str, user: dict = Depends(get_current_user)):
+    existing = await db.watchlist.find_one({"user_id": user["_id"], "listing_id": listing_id})
+    
+    if existing:
+        # Remove from watchlist
+        await db.watchlist.delete_one({"_id": existing["_id"]})
+        await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"watchers_count": -1}})
+        return {"watching": False, "message": "Removed from watchlist"}
+    else:
+        # Add to watchlist
+        await db.watchlist.insert_one({
+            "user_id": user["_id"],
+            "listing_id": listing_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"watchers_count": 1}})
+        return {"watching": True, "message": "Added to watchlist"}
+
+@api_router.get("/users/me/watchlist")
+async def get_watchlist(user: dict = Depends(get_current_user)):
+    cursor = db.watchlist.find({"user_id": user["_id"]}).sort("created_at", -1)
+    
+    items = []
+    async for watch in cursor:
+        listing = await db.listings.find_one({"_id": ObjectId(watch["listing_id"])})
+        if listing:
+            listing["_id"] = str(listing["_id"])
+            listing["seller_id"] = str(listing["seller_id"])
+            items.append(listing)
+    
+    return {"watchlist": items}
+
+# Saved Searches
+@api_router.post("/saved-searches")
+async def create_saved_search(search: SavedSearchCreate, user: dict = Depends(get_current_user)):
+    search_doc = {
+        "user_id": user["_id"],
+        "name": search.name,
+        "query": search.query,
+        "category": search.category,
+        "min_price": search.min_price,
+        "max_price": search.max_price,
+        "notify": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    result = await db.saved_searches.insert_one(search_doc)
+    return {"message": "Search saved", "id": str(result.inserted_id)}
+
+@api_router.get("/saved-searches")
+async def get_saved_searches(user: dict = Depends(get_current_user)):
+    cursor = db.saved_searches.find({"user_id": user["_id"]})
+    searches = []
+    async for s in cursor:
+        s["_id"] = str(s["_id"])
+        searches.append(s)
+    return {"saved_searches": searches}
+
+@api_router.delete("/saved-searches/{search_id}")
+async def delete_saved_search(search_id: str, user: dict = Depends(get_current_user)):
+    await db.saved_searches.delete_one({"_id": ObjectId(search_id), "user_id": user["_id"]})
+    return {"message": "Search deleted"}
+
+# Feedback System
+@api_router.post("/transactions/{transaction_id}/feedback")
+async def leave_feedback(transaction_id: str, feedback: FeedbackCreate, user: dict = Depends(get_current_user)):
+    try:
+        transaction = await db.transactions.find_one({"_id": ObjectId(transaction_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # Determine who is leaving feedback
+    if transaction["buyer_id"] == user["_id"]:
+        target_id = transaction["seller_id"]
+        feedback_type = "buyer_to_seller"
+    elif transaction["seller_id"] == user["_id"]:
+        target_id = transaction["buyer_id"]
+        feedback_type = "seller_to_buyer"
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if already left feedback
+    existing = await db.feedback.find_one({
+        "transaction_id": transaction_id,
+        "from_user_id": user["_id"]
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You have already left feedback for this transaction")
+    
+    feedback_doc = {
+        "transaction_id": transaction_id,
+        "listing_id": transaction["listing_id"],
+        "from_user_id": user["_id"],
+        "from_user_name": user["full_name"],
+        "to_user_id": target_id,
+        "rating": feedback.rating,
+        "comment": feedback.comment,
+        "feedback_type": feedback_type,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.feedback.insert_one(feedback_doc)
+    
+    # Update target user's rating stats
+    rating_field = f"{feedback.rating}_ratings"
+    await db.users.update_one(
+        {"_id": ObjectId(target_id)},
+        {"$inc": {"total_ratings": 1, rating_field: 1}}
+    )
+    
+    # Recalculate seller rating
+    target_user = await db.users.find_one({"_id": ObjectId(target_id)})
+    if target_user:
+        total = target_user.get("total_ratings", 0)
+        positive = target_user.get("positive_ratings", 0)
+        neutral = target_user.get("neutral_ratings", 0)
+        # Weighted score: positive=5, neutral=3, negative=1
+        score = (positive * 5 + neutral * 3) / (total * 5) * 5 if total > 0 else 0
+        await db.users.update_one({"_id": ObjectId(target_id)}, {"$set": {"seller_rating": round(score, 1)}})
+    
+    return {"message": "Feedback submitted"}
+
+@api_router.get("/users/{user_id}/feedback")
+async def get_user_feedback(user_id: str, page: int = 1, limit: int = 20):
+    skip = (page - 1) * limit
+    cursor = db.feedback.find({"to_user_id": user_id}).sort("created_at", -1).skip(skip).limit(limit)
+    
+    feedbacks = []
+    async for f in cursor:
+        f["_id"] = str(f["_id"])
+        feedbacks.append(f)
+    
+    total = await db.feedback.count_documents({"to_user_id": user_id})
+    
+    return {"feedback": feedbacks, "total": total}
 
 # User Dashboard
 @api_router.get("/users/me/bids")
 async def get_my_bids(user: dict = Depends(get_current_user)):
     cursor = db.bids.find({"bidder_id": user["_id"]}).sort("created_at", -1)
-    bids = []
+    
+    bids_by_listing = {}
     async for bid in cursor:
-        listing = await db.listings.find_one({"_id": ObjectId(bid["listing_id"])})
-        if listing:
-            bids.append({
-                "bid_id": str(bid["_id"]),
-                "listing_id": bid["listing_id"],
-                "listing_title": listing["title"],
-                "listing_image": listing["images"][0] if listing["images"] else None,
-                "amount": bid["amount"],
-                "current_bid": listing["current_bid"],
-                "is_winning": str(listing.get("highest_bidder_id")) == user["_id"],
-                "status": listing["status"],
-                "end_time": listing["end_time"],
-                "created_at": bid["created_at"]
-            })
-    return {"bids": bids}
+        if bid["listing_id"] not in bids_by_listing:
+            listing = await db.listings.find_one({"_id": ObjectId(bid["listing_id"])})
+            if listing:
+                listing["_id"] = str(listing["_id"])
+                listing["seller_id"] = str(listing["seller_id"])
+                listing["my_max_bid"] = bid["max_bid"]
+                listing["is_winning"] = str(listing.get("highest_bidder_id")) == user["_id"]
+                bids_by_listing[bid["listing_id"]] = listing
+    
+    return {"bids": list(bids_by_listing.values())}
 
 @api_router.get("/users/me/listings")
-async def get_my_listings(user: dict = Depends(get_current_user)):
-    cursor = db.listings.find({"seller_id": user["_id"]}).sort("created_at", -1)
+async def get_my_listings(user: dict = Depends(get_current_user), status: Optional[str] = None):
+    query = {"seller_id": user["_id"]}
+    if status:
+        query["status"] = status
+    
+    cursor = db.listings.find(query).sort("created_at", -1)
     listings = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
-        doc.pop("seller_id", None)
+        doc["seller_id"] = str(doc["seller_id"])
         listings.append(doc)
+    
     return {"listings": listings}
+
+@api_router.get("/users/me/purchases")
+async def get_my_purchases(user: dict = Depends(get_current_user)):
+    cursor = db.transactions.find({"buyer_id": user["_id"]}).sort("created_at", -1)
+    
+    purchases = []
+    async for t in cursor:
+        listing = await db.listings.find_one({"_id": ObjectId(t["listing_id"])})
+        if listing:
+            listing["_id"] = str(listing["_id"])
+            listing["seller_id"] = str(listing["seller_id"])
+            t["listing"] = listing
+            t["_id"] = str(t["_id"])
+            purchases.append(t)
+    
+    return {"purchases": purchases}
+
+@api_router.get("/users/me/sales")
+async def get_my_sales(user: dict = Depends(get_current_user)):
+    cursor = db.transactions.find({"seller_id": user["_id"]}).sort("created_at", -1)
+    
+    sales = []
+    async for t in cursor:
+        listing = await db.listings.find_one({"_id": ObjectId(t["listing_id"])})
+        if listing:
+            listing["_id"] = str(listing["_id"])
+            listing["seller_id"] = str(listing["seller_id"])
+            t["listing"] = listing
+            t["_id"] = str(t["_id"])
+            
+            # Get buyer info
+            buyer = await db.users.find_one({"_id": ObjectId(t["buyer_id"])})
+            if buyer:
+                t["buyer_name"] = buyer["full_name"]
+            sales.append(t)
+    
+    return {"sales": sales}
+
+# Seller Dashboard Stats
+@api_router.get("/users/me/seller-stats")
+async def get_seller_stats(user: dict = Depends(get_current_user)):
+    active_listings = await db.listings.count_documents({"seller_id": user["_id"], "status": "active"})
+    pending_listings = await db.listings.count_documents({"seller_id": user["_id"], "status": "pending"})
+    sold_listings = await db.listings.count_documents({"seller_id": user["_id"], "status": "sold"})
+    unsold_listings = await db.listings.count_documents({"seller_id": user["_id"], "status": "unsold"})
+    
+    # Total watchers on active listings
+    pipeline = [
+        {"$match": {"seller_id": user["_id"], "status": "active"}},
+        {"$group": {"_id": None, "total_watchers": {"$sum": "$watchers_count"}, "total_views": {"$sum": "$views_count"}}}
+    ]
+    result = await db.listings.aggregate(pipeline).to_list(1)
+    watchers = result[0]["total_watchers"] if result else 0
+    views = result[0]["total_views"] if result else 0
+    
+    # Active bids
+    active_bids = await db.bids.count_documents({
+        "listing_id": {"$in": [str(l["_id"]) async for l in db.listings.find({"seller_id": user["_id"], "status": "active"})]}
+    })
+    
+    return {
+        "active_listings": active_listings,
+        "pending_listings": pending_listings,
+        "sold_listings": sold_listings,
+        "unsold_listings": unsold_listings,
+        "total_watchers": watchers,
+        "total_views": views,
+        "total_sales": user.get("total_sales", 0),
+        "total_revenue": user.get("total_sales_amount", 0),
+        "seller_rating": user.get("seller_rating", 0),
+        "total_ratings": user.get("total_ratings", 0),
+        "positive_percentage": calculate_positive_percentage(user)
+    }
+
+# Relist Item
+@api_router.post("/listings/{listing_id}/relist")
+async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depends(get_current_user)):
+    try:
+        listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if str(listing["seller_id"]) != user["_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    if listing["status"] not in ["ended", "unsold"]:
+        raise HTTPException(status_code=400, detail="Can only relist ended or unsold items")
+    
+    end_time = datetime.now(timezone.utc) + timedelta(days=duration_days)
+    
+    await db.listings.update_one(
+        {"_id": ObjectId(listing_id)},
+        {
+            "$set": {
+                "status": "pending",
+                "start_time": datetime.now(timezone.utc).isoformat(),
+                "end_time": end_time.isoformat(),
+                "current_bid": listing["starting_bid"],
+                "bid_count": 0,
+                "highest_bidder_id": None,
+                "highest_bidder_name": None,
+                "highest_bidder_max_bid": None,
+                "reserve_met": False if listing.get("reserve_price") else True,
+                "winner_id": None,
+                "sold_price": None
+            }
+        }
+    )
+    
+    return {"message": "Item relisted for approval"}
+
+# Notifications
+async def create_notification(user_id: str, type: str, message: str, listing_id: Optional[str] = None):
+    notification = {
+        "user_id": user_id,
+        "type": type,
+        "message": message,
+        "listing_id": listing_id,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notification)
+    
+    # Send real-time notification
+    await send_user_notification(user_id, notification)
+
+@api_router.get("/notifications")
+async def get_notifications(user: dict = Depends(get_current_user), limit: int = 50):
+    cursor = db.notifications.find({"user_id": user["_id"]}).sort("created_at", -1).limit(limit)
+    notifications = []
+    async for n in cursor:
+        n["_id"] = str(n["_id"])
+        notifications.append(n)
+    
+    unread_count = await db.notifications.count_documents({"user_id": user["_id"], "read": False})
+    
+    return {"notifications": notifications, "unread_count": unread_count}
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
+    await db.notifications.update_one(
+        {"_id": ObjectId(notification_id), "user_id": user["_id"]},
+        {"$set": {"read": True}}
+    )
+    return {"message": "Marked as read"}
+
+@api_router.put("/notifications/read-all")
+async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
+    await db.notifications.update_many({"user_id": user["_id"]}, {"$set": {"read": True}})
+    return {"message": "All marked as read"}
 
 # Verification
 @api_router.post("/verification/submit")
@@ -659,7 +1415,7 @@ async def submit_verification(data: VerificationSubmit, user: dict = Depends(get
     await db.verifications.insert_one(verification_doc)
     await db.users.update_one({"_id": ObjectId(user["_id"])}, {"$set": {"verification_status": "pending"}})
     
-    return {"message": "Verification submitted successfully"}
+    return {"message": "Verification submitted"}
 
 @api_router.get("/verification/status")
 async def get_verification_status(user: dict = Depends(get_current_user)):
@@ -669,89 +1425,6 @@ async def get_verification_status(user: dict = Depends(get_current_user)):
         "verification_badge": user.get("verification_badge", False),
         "submission": verification if verification else None
     }
-
-# Notifications
-async def create_notification(user_id: str, type: str, message: str, listing_id: Optional[str] = None):
-    notification = {
-        "user_id": user_id,
-        "type": type,
-        "message": message,
-        "listing_id": listing_id,
-        "read": False,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.notifications.insert_one(notification)
-
-@api_router.get("/notifications")
-async def get_notifications(user: dict = Depends(get_current_user)):
-    cursor = db.notifications.find({"user_id": user["_id"]}).sort("created_at", -1).limit(50)
-    notifications = []
-    async for doc in cursor:
-        doc["_id"] = str(doc["_id"])
-        notifications.append(doc)
-    return {"notifications": notifications}
-
-@api_router.put("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
-    await db.notifications.update_one(
-        {"_id": ObjectId(notification_id), "user_id": user["_id"]},
-        {"$set": {"read": True}}
-    )
-    return {"message": "Notification marked as read"}
-
-@api_router.put("/notifications/read-all")
-async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
-    await db.notifications.update_many({"user_id": user["_id"]}, {"$set": {"read": True}})
-    return {"message": "All notifications marked as read"}
-
-# Messaging (for auction winners)
-@api_router.post("/listings/{listing_id}/messages")
-async def send_message(listing_id: str, message: MessageCreate, user: dict = Depends(get_current_user)):
-    listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
-    if not listing:
-        raise HTTPException(status_code=404, detail="Listing not found")
-    
-    # Only seller and winner can message
-    is_seller = str(listing["seller_id"]) == user["_id"]
-    is_winner = str(listing.get("winner_id")) == user["_id"]
-    
-    if not (is_seller or is_winner):
-        raise HTTPException(status_code=403, detail="Only seller and winner can message")
-    
-    msg_doc = {
-        "listing_id": listing_id,
-        "sender_id": user["_id"],
-        "sender_name": user["full_name"],
-        "content": message.content,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.messages.insert_one(msg_doc)
-    
-    # Notify recipient
-    recipient_id = str(listing["winner_id"]) if is_seller else str(listing["seller_id"])
-    await create_notification(recipient_id, "message", f"New message about {listing['title']}", listing_id)
-    
-    return {"message": "Message sent"}
-
-@api_router.get("/listings/{listing_id}/messages")
-async def get_messages(listing_id: str, user: dict = Depends(get_current_user)):
-    listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
-    if not listing:
-        raise HTTPException(status_code=404, detail="Listing not found")
-    
-    is_seller = str(listing["seller_id"]) == user["_id"]
-    is_winner = str(listing.get("winner_id")) == user["_id"]
-    
-    if not (is_seller or is_winner):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    cursor = db.messages.find({"listing_id": listing_id}).sort("created_at", 1)
-    messages = []
-    async for msg in cursor:
-        msg["_id"] = str(msg["_id"])
-        messages.append(msg)
-    
-    return {"messages": messages}
 
 # Reporting
 @api_router.post("/listings/{listing_id}/report")
@@ -775,6 +1448,36 @@ async def report_listing(listing_id: str, report: ReportCreate, user: dict = Dep
     return {"message": "Report submitted"}
 
 # Admin endpoints
+@api_router.get("/admin/stats")
+async def admin_get_stats(admin: dict = Depends(require_admin)):
+    total_users = await db.users.count_documents({})
+    total_listings = await db.listings.count_documents({})
+    active_auctions = await db.listings.count_documents({"status": "active"})
+    pending_listings = await db.listings.count_documents({"status": "pending"})
+    pending_verifications = await db.verifications.count_documents({"status": "pending"})
+    total_bids = await db.bids.count_documents({})
+    total_transactions = await db.transactions.count_documents({})
+    pending_reports = await db.reports.count_documents({"status": "pending"})
+    
+    # Revenue (10% fee on sold items)
+    pipeline = [{"$group": {"_id": None, "total": {"$sum": "$amount"}}}]
+    result = await db.transactions.aggregate(pipeline).to_list(1)
+    total_gmv = result[0]["total"] if result else 0
+    platform_revenue = total_gmv * 0.10
+    
+    return {
+        "total_users": total_users,
+        "total_listings": total_listings,
+        "active_auctions": active_auctions,
+        "pending_listings": pending_listings,
+        "pending_verifications": pending_verifications,
+        "total_bids": total_bids,
+        "total_transactions": total_transactions,
+        "pending_reports": pending_reports,
+        "total_gmv": total_gmv,
+        "platform_revenue": platform_revenue
+    }
+
 @api_router.get("/admin/listings")
 async def admin_get_listings(
     status: Optional[str] = None,
@@ -800,14 +1503,14 @@ async def admin_get_listings(
 
 @api_router.put("/admin/listings/{listing_id}")
 async def admin_update_listing(listing_id: str, update: ListingUpdate, admin: dict = Depends(require_admin)):
-    result = await db.listings.update_one(
-        {"_id": ObjectId(listing_id)},
-        {"$set": {"status": update.status}}
-    )
+    update_dict = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No updates provided")
+    
+    result = await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$set": update_dict})
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    # Notify seller
     listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     if listing:
         await create_notification(
@@ -817,7 +1520,7 @@ async def admin_update_listing(listing_id: str, update: ListingUpdate, admin: di
             listing_id
         )
     
-    return {"message": f"Listing {update.status}"}
+    return {"message": f"Listing updated"}
 
 @api_router.delete("/admin/listings/{listing_id}")
 async def admin_delete_listing(listing_id: str, admin: dict = Depends(require_admin)):
@@ -850,6 +1553,7 @@ async def admin_get_users(
     users = []
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
+        doc["positive_percentage"] = calculate_positive_percentage(doc)
         users.append(doc)
     
     total = await db.users.count_documents(query)
@@ -907,11 +1611,7 @@ async def admin_review_verification(
     
     await db.users.update_one({"_id": ObjectId(verification["user_id"])}, {"$set": user_update})
     
-    await create_notification(
-        verification["user_id"],
-        "verification",
-        f"Your verification has been {status}"
-    )
+    await create_notification(verification["user_id"], "verification", f"Your verification has been {status}")
     
     return {"message": f"Verification {status}"}
 
@@ -934,56 +1634,50 @@ async def admin_get_reports(
     total = await db.reports.count_documents(query)
     return {"reports": reports, "total": total, "page": page}
 
-@api_router.get("/admin/stats")
-async def admin_get_stats(admin: dict = Depends(require_admin)):
-    total_users = await db.users.count_documents({})
-    total_listings = await db.listings.count_documents({})
-    active_auctions = await db.listings.count_documents({"status": "active", "listing_type": "auction"})
-    pending_listings = await db.listings.count_documents({"status": "pending"})
-    pending_verifications = await db.verifications.count_documents({"status": "pending"})
-    total_bids = await db.bids.count_documents({})
+# User Profile (public)
+@api_router.get("/users/{user_id}/profile")
+async def get_user_profile(user_id: str):
+    try:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+    except:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get active listings
+    active_listings = await db.listings.count_documents({"seller_id": user["_id"], "status": "active"})
     
     return {
-        "total_users": total_users,
-        "total_listings": total_listings,
-        "active_auctions": active_auctions,
-        "pending_listings": pending_listings,
-        "pending_verifications": pending_verifications,
-        "total_bids": total_bids
+        "id": str(user["_id"]),
+        "full_name": user["full_name"],
+        "city": user["city"],
+        "province": user.get("province", "British Columbia"),
+        "verification_badge": user.get("verification_badge", False),
+        "seller_rating": user.get("seller_rating", 0),
+        "total_ratings": user.get("total_ratings", 0),
+        "positive_percentage": calculate_positive_percentage(user),
+        "total_sales": user.get("total_sales", 0),
+        "active_listings": active_listings,
+        "member_since": user.get("created_at")
     }
 
-# Email notifications (MOCK - Replace SENDGRID_API_KEY with real key)
-async def send_email_notification(to_email: str, subject: str, content: str):
-    """Send email via SendGrid - MOCK implementation"""
-    try:
-        api_key = os.getenv("SENDGRID_API_KEY")
-        if api_key == "mock_sendgrid_key":
-            logger.info(f"MOCK EMAIL: To={to_email}, Subject={subject}")
-            return True
-        
-        message = Mail(
-            from_email=os.getenv("SENDER_EMAIL"),
-            to_emails=to_email,
-            subject=subject,
-            html_content=content
-        )
-        sg = SendGridAPIClient(api_key)
-        sg.send(message)
-        return True
-    except Exception as e:
-        logger.error(f"Email error: {e}")
-        return False
-
-# Startup event - seed admin and create indexes
+# Startup event
 @fastapi_app.on_event("startup")
 async def startup():
     # Create indexes
     await db.users.create_index("email", unique=True)
-    await db.listings.create_index([("status", 1), ("created_at", -1)])
+    await db.listings.create_index([("status", 1), ("end_time", 1)])
     await db.listings.create_index([("category", 1), ("status", 1)])
     await db.listings.create_index([("seller_id", 1)])
+    await db.listings.create_index([("title", "text"), ("description", "text")])
     await db.bids.create_index([("listing_id", 1), ("created_at", -1)])
+    await db.bids.create_index([("bidder_id", 1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    await db.watchlist.create_index([("user_id", 1), ("listing_id", 1)], unique=True)
+    await db.feedback.create_index([("to_user_id", 1), ("created_at", -1)])
+    await db.transactions.create_index([("buyer_id", 1)])
+    await db.transactions.create_index([("seller_id", 1)])
     await db.login_attempts.create_index("identifier")
     
     # Seed admin
@@ -999,22 +1693,30 @@ async def startup():
             "full_name": "Admin",
             "city": "Vancouver",
             "postal_code": "V6B1A1",
+            "province": "British Columbia",
             "role": "admin",
             "verification_status": "verified",
             "verification_badge": True,
             "is_suspended": False,
             "is_banned": False,
+            "seller_rating": 5.0,
+            "total_ratings": 0,
+            "positive_ratings": 0,
+            "neutral_ratings": 0,
+            "negative_ratings": 0,
+            "total_sales": 0,
+            "total_sales_amount": 0,
+            "total_purchases": 0,
+            "total_bids_placed": 0,
+            "auctions_won": 0,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
         logger.info("Admin user seeded")
     elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one(
-            {"email": admin_email},
-            {"$set": {"password_hash": hash_password(admin_password)}}
-        )
+        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
         logger.info("Admin password updated")
     
-    logger.info("BidCa.ca API started")
+    logger.info("BidCa.ca Full Auction Platform API started")
 
 @fastapi_app.on_event("shutdown")
 async def shutdown():

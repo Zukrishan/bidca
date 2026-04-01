@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API, useAuth } from "../App";
+import { API, useAuth, formatCAD } from "../App";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import {
+  MagnifyingGlass,
   Gavel,
-  ShieldCheck,
-  MapPin,
   Clock,
+  Fire,
+  Star,
   ArrowRight,
+  MapPin,
+  ShieldCheck,
+  Lightning,
+  Tag,
+  Heart,
   Users,
   Trophy,
-  Handshake,
-  Lightning
+  Package
 } from "@phosphor-icons/react";
 
 // Countdown Timer Component
-function CountdownTimer({ endTime }) {
+function CountdownTimer({ endTime, compact = false }) {
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
 
   function calculateTimeLeft() {
@@ -34,38 +39,47 @@ function CountdownTimer({ endTime }) {
   }
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
     return () => clearInterval(timer);
   }, [endTime]);
 
-  if (timeLeft.ended) {
-    return <span className="text-muted-foreground">Ended</span>;
-  }
+  if (timeLeft.ended) return <span className="text-muted-foreground">Ended</span>;
 
   const isUrgent = timeLeft.days === 0 && timeLeft.hours < 1;
 
+  if (compact) {
+    return (
+      <span className={`font-mono tabular-nums ${isUrgent ? 'text-primary animate-bid-pulse font-bold' : ''}`}>
+        {timeLeft.days > 0 && `${timeLeft.days}d `}
+        {String(timeLeft.hours).padStart(2, '0')}:
+        {String(timeLeft.minutes).padStart(2, '0')}:
+        {String(timeLeft.seconds).padStart(2, '0')}
+      </span>
+    );
+  }
+
   return (
-    <div className={`font-mono tabular-nums ${isUrgent ? 'text-primary animate-bid-pulse' : 'text-foreground'}`}>
-      {timeLeft.days > 0 && <span>{timeLeft.days}d </span>}
-      <span>{String(timeLeft.hours).padStart(2, '0')}:</span>
-      <span>{String(timeLeft.minutes).padStart(2, '0')}:</span>
-      <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
+    <div className={`flex gap-1 ${isUrgent ? 'text-primary' : ''}`}>
+      {timeLeft.days > 0 && <span className="font-mono">{timeLeft.days}d</span>}
+      <span className="font-mono tabular-nums">
+        {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
+      </span>
     </div>
   );
 }
 
 // Auction Card Component
 function AuctionCard({ auction }) {
+  const isUrgent = new Date(auction.end_time) - new Date() < 3600000; // Less than 1 hour
+
   return (
     <Link
       to={`/auctions/${auction._id}`}
-      className="group auction-card block bg-white border border-border overflow-hidden"
+      className="group auction-card block bg-white border border-border overflow-hidden hover:shadow-lg transition-all"
       data-testid={`auction-card-${auction._id}`}
     >
       {/* Image */}
-      <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+      <div className="relative aspect-square bg-muted overflow-hidden">
         {auction.images?.[0] ? (
           <img
             src={auction.images[0]}
@@ -78,241 +92,271 @@ function AuctionCard({ auction }) {
           </div>
         )}
         
-        {/* Live Badge */}
-        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 bg-primary text-white text-xs font-bold uppercase live-badge">
-          <span className="w-1.5 h-1.5 bg-white rounded-full" />
-          Live
+        {/* Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {auction.listing_type !== "fixed_price" && (
+            <div className={`flex items-center gap-1 px-2 py-0.5 text-xs font-bold uppercase ${isUrgent ? 'bg-primary text-white live-badge' : 'bg-secondary text-white'}`}>
+              {isUrgent && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+              {isUrgent ? 'Ending Soon' : 'Auction'}
+            </div>
+          )}
+          {auction.buy_it_now_price && (
+            <div className="px-2 py-0.5 bg-green-600 text-white text-xs font-bold uppercase">
+              BIN Available
+            </div>
+          )}
         </div>
 
-        {/* Verified Badge */}
         {auction.seller_verified && (
-          <div className="absolute top-3 right-3 p-1.5 bg-secondary text-white">
-            <ShieldCheck className="h-4 w-4" weight="fill" />
+          <div className="absolute top-2 right-2 p-1 bg-white/90 rounded-full">
+            <ShieldCheck className="h-4 w-4 text-primary" weight="fill" />
+          </div>
+        )}
+
+        {/* Watch count */}
+        {auction.watchers_count > 0 && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-0.5 bg-black/70 text-white text-xs">
+            <Heart className="h-3 w-3" />
+            {auction.watchers_count}
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <h3 className="font-heading font-bold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+      <div className="p-3">
+        <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors min-h-[40px]">
           {auction.title}
         </h3>
         
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-          <MapPin className="h-4 w-4" />
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+          <MapPin className="h-3 w-3" />
           <span>{auction.city}</span>
+          {auction.condition && (
+            <>
+              <span>•</span>
+              <span className="capitalize">{auction.condition.replace('_', ' ')}</span>
+            </>
+          )}
         </div>
 
-        <div className="flex items-center justify-between pt-3 border-t border-border">
+        <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Bid</p>
-            <p className="font-heading font-bold text-xl bid-amount">${auction.current_bid?.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">
+              {auction.listing_type === "fixed_price" ? "Price" : `${auction.bid_count || 0} bids`}
+            </p>
+            <p className="font-bold text-lg bid-amount">
+              {formatCAD(auction.listing_type === "fixed_price" ? auction.buy_it_now_price : auction.current_bid)}
+            </p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Ends In</p>
-            <CountdownTimer endTime={auction.end_time} />
-          </div>
+          {auction.listing_type !== "fixed_price" && (
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Time left</p>
+              <CountdownTimer endTime={auction.end_time} compact />
+            </div>
+          )}
         </div>
 
-        <div className="mt-3 text-xs text-muted-foreground">
-          {auction.bid_count || 0} bids
-        </div>
+        {/* Reserve indicator */}
+        {auction.reserve_price && !auction.reserve_met && (
+          <p className="text-xs text-yellow-600 mt-1 font-medium">Reserve not met</p>
+        )}
       </div>
     </Link>
   );
 }
 
-// Categories
-const CATEGORIES = [
-  { name: "Electronics", icon: "💻" },
-  { name: "Vehicles", icon: "🚗" },
-  { name: "Furniture", icon: "🛋️" },
-  { name: "Sports & Outdoors", icon: "⚽" },
-  { name: "Jewelry & Watches", icon: "💎" },
-  { name: "Collectibles & Art", icon: "🎨" },
-];
+// Category icons
+const categoryIcons = {
+  "Electronics": "💻",
+  "Vehicles": "🚗",
+  "Collectibles & Art": "🎨",
+  "Fashion": "👔",
+  "Home & Garden": "🏠",
+  "Sports & Outdoors": "⚽",
+  "Toys & Games": "🎮",
+  "Jewelry & Watches": "💎",
+  "Musical Instruments": "🎸",
+  "Books & Media": "📚",
+  "Tools & Equipment": "🔧",
+  "Other": "📦"
+};
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [featuredAuctions, setFeaturedAuctions] = useState([]);
+  const [endingSoon, setEndingSoon] = useState([]);
+  const [categories, setCategories] = useState({});
+  const [popularKeywords, setPopularKeywords] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchFeaturedAuctions();
+    fetchData();
   }, []);
 
-  const fetchFeaturedAuctions = async () => {
+  const fetchData = async () => {
     try {
-      const { data } = await axios.get(`${API}/listings/featured`);
-      setFeaturedAuctions(data.listings || []);
+      const [featuredRes, endingRes, catRes, keywordsRes] = await Promise.all([
+        axios.get(`${API}/listings/featured`),
+        axios.get(`${API}/listings/ending-soon`),
+        axios.get(`${API}/categories`),
+        axios.get(`${API}/popular-keywords`)
+      ]);
+      setFeaturedAuctions(featuredRes.data.listings || []);
+      setEndingSoon(endingRes.data.listings || []);
+      setCategories(catRes.data.categories || {});
+      setPopularKeywords(keywordsRes.data.keywords || []);
     } catch (error) {
-      console.error("Error fetching featured auctions:", error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/auctions?q=${encodeURIComponent(searchQuery)}`);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
 
-      {/* Hero Section */}
-      <section 
-        className="relative min-h-[600px] flex items-center"
-        style={{
-          backgroundImage: `url('https://static.prod-images.emergentagent.com/jobs/b315255c-ba1a-48ba-bb14-ed2debb047ec/images/d624dc5759685430fed48ed7924834b37f15fcdf2c0f8e61c948b8a98ba8b308.png')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-        data-testid="hero-section"
-      >
-        <div className="absolute inset-0 hero-overlay" />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/20 border border-primary/30 text-primary mb-6">
-              <MapPin className="h-4 w-4" weight="fill" />
-              <span className="text-sm font-medium">Exclusively for British Columbia</span>
-            </div>
-            
-            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-black text-white uppercase tracking-tighter mb-6 animate-fade-in-up">
-              Your Local
-              <br />
-              <span className="text-primary">Trusted</span> Auction
-              <br />
-              Platform
-            </h1>
-            
-            <p className="text-lg text-gray-300 mb-8 max-w-lg animate-fade-in-up animation-delay-100">
-              Buy and sell with confidence in your BC community. Verified sellers, secure bidding, and local transactions only.
-            </p>
-            
-            <div className="flex flex-wrap gap-4 animate-fade-in-up animation-delay-200">
-              <Link
-                to="/auctions"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-bold hover:bg-primary/90 transition-colors"
-                data-testid="browse-auctions-btn"
-              >
-                Browse Auctions
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-              {!isAuthenticated && (
-                <Link
-                  to="/register"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-secondary font-bold hover:bg-gray-100 transition-colors"
-                  data-testid="start-selling-btn"
-                >
-                  Start Selling
-                  <Gavel className="h-5 w-5" />
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="py-20 bg-white" data-testid="how-it-works">
+      {/* Hero / Search Section */}
+      <section className="bg-secondary text-white py-8 md:py-12" data-testid="hero-section">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
-              How It Works
-            </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Simple, secure, and local. Start bidding or selling in minutes.
+          <div className="text-center mb-6">
+            <h1 className="font-heading text-3xl md:text-4xl font-bold mb-2">
+              Canada's Trusted Auction Platform
+            </h1>
+            <p className="text-gray-300">
+              Buy and sell with confidence • BC Residents Only
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {[
-              { icon: Users, title: "Sign Up", desc: "Create your BC-verified account" },
-              { icon: ShieldCheck, title: "Get Verified", desc: "Upload your ID for trust badge" },
-              { icon: Gavel, title: "Bid or List", desc: "Start buying or selling locally" },
-              { icon: Handshake, title: "Connect", desc: "Meet locally and complete the deal" },
-            ].map((step, i) => (
-              <div key={i} className="text-center group">
-                <div className="relative inline-flex items-center justify-center w-16 h-16 bg-muted mb-4 group-hover:bg-primary transition-colors">
-                  <step.icon className="h-8 w-8 text-primary group-hover:text-white transition-colors" weight="fill" />
-                  <span className="absolute -top-2 -right-2 w-6 h-6 bg-secondary text-white text-xs font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                </div>
-                <h3 className="font-heading font-bold text-lg mb-2">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.desc}</p>
-              </div>
+          {/* Search Bar */}
+          <form onSubmit={handleSearch} className="max-w-3xl mx-auto">
+            <div className="flex bg-white rounded-sm overflow-hidden">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search for items... (e.g., iPhone, vintage watch, hockey cards)"
+                className="flex-1 px-4 py-4 text-foreground outline-none"
+                data-testid="search-input"
+              />
+              <button
+                type="submit"
+                className="px-6 bg-primary text-white font-bold hover:bg-primary/90 transition-colors flex items-center gap-2"
+                data-testid="search-btn"
+              >
+                <MagnifyingGlass className="h-5 w-5" />
+                <span className="hidden sm:inline">Search</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Popular Keywords */}
+          <div className="flex flex-wrap justify-center gap-2 mt-4">
+            <span className="text-gray-400 text-sm">Popular:</span>
+            {popularKeywords.slice(0, 6).map((keyword) => (
+              <Link
+                key={keyword}
+                to={`/auctions?q=${encodeURIComponent(keyword)}`}
+                className="px-3 py-1 bg-white/10 text-white text-sm hover:bg-white/20 transition-colors"
+              >
+                {keyword}
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
       {/* Categories */}
-      <section className="py-20 bg-muted" data-testid="categories-section">
+      <section className="py-8 border-b border-border" data-testid="categories-section">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold">
-              Browse Categories
-            </h2>
-            <Link
-              to="/auctions"
-              className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
-            >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-heading text-xl font-bold">Browse Categories</h2>
+            <Link to="/auctions" className="text-sm text-primary hover:underline flex items-center gap-1">
               View All <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {CATEGORIES.map((cat) => (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
+            {Object.keys(categories).map((cat) => (
               <Link
-                key={cat.name}
-                to={`/auctions?category=${encodeURIComponent(cat.name)}`}
-                className="flex flex-col items-center justify-center p-6 bg-white border border-border hover:border-primary hover:-translate-y-1 transition-all"
-                data-testid={`category-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+                key={cat}
+                to={`/auctions?category=${encodeURIComponent(cat)}`}
+                className="flex flex-col items-center p-3 bg-white border border-border hover:border-primary hover:shadow-sm transition-all text-center group"
+                data-testid={`category-${cat.toLowerCase().replace(/\s+/g, '-')}`}
               >
-                <span className="text-3xl mb-3">{cat.icon}</span>
-                <span className="text-sm font-medium text-center">{cat.name}</span>
+                <span className="text-2xl mb-1">{categoryIcons[cat] || "📦"}</span>
+                <span className="text-xs font-medium group-hover:text-primary transition-colors line-clamp-1">{cat}</span>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Auctions */}
-      <section className="py-20 bg-white" data-testid="featured-auctions">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="font-heading text-2xl sm:text-3xl font-bold mb-2">
-                Featured Live Auctions
-              </h2>
-              <p className="text-muted-foreground">Hot items ending soon</p>
+      {/* Ending Soon - Hot Auctions */}
+      {endingSoon.length > 0 && (
+        <section className="py-8 bg-gradient-to-r from-primary/5 to-orange-50" data-testid="ending-soon">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Fire className="h-6 w-6 text-primary" weight="fill" />
+                <h2 className="font-heading text-xl font-bold">Ending Soon</h2>
+                <span className="px-2 py-0.5 bg-primary text-white text-xs font-bold rounded-full">
+                  HOT
+                </span>
+              </div>
+              <Link to="/auctions?sort=ending_soonest" className="text-sm text-primary hover:underline flex items-center gap-1">
+                See All <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
-            <Link
-              to="/auctions"
-              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-secondary text-white font-medium hover:bg-secondary/90 transition-colors"
-            >
-              View All
-              <ArrowRight className="h-4 w-4" />
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {endingSoon.slice(0, 6).map((auction) => (
+                <AuctionCard key={auction._id} auction={auction} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Featured Auctions */}
+      <section className="py-8" data-testid="featured-auctions">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Star className="h-6 w-6 text-yellow-500" weight="fill" />
+              <h2 className="font-heading text-xl font-bold">Popular Right Now</h2>
+            </div>
+            <Link to="/auctions?sort=most_bids" className="text-sm text-primary hover:underline flex items-center gap-1">
+              View All <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-muted animate-pulse aspect-[4/5]" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-muted animate-pulse aspect-square rounded" />
               ))}
             </div>
           ) : featuredAuctions.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {featuredAuctions.map((auction) => (
                 <AuctionCard key={auction._id} auction={auction} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-muted">
+            <div className="text-center py-12 bg-muted rounded">
               <Gavel className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No active auctions yet. Be the first to list!</p>
+              <p className="text-muted-foreground mb-4">No active auctions yet. Be the first to list!</p>
               <Link
                 to="/create-listing"
-                className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
               >
                 Create Listing
                 <ArrowRight className="h-4 w-4" />
@@ -322,45 +366,53 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Why BidCa */}
-      <section className="py-20 bg-secondary text-white" data-testid="why-bidca">
+      {/* How It Works */}
+      <section className="py-12 bg-muted" data-testid="how-it-works">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-6">
-                Why Choose <span className="text-primary">BidCa</span>.ca?
-              </h2>
-              <div className="space-y-6">
-                {[
-                  { icon: MapPin, title: "Local Only", desc: "Exclusively for BC residents. No out-of-province scams." },
-                  { icon: ShieldCheck, title: "Verified Sellers", desc: "Every seller is manually verified for your protection." },
-                  { icon: Lightning, title: "Real-Time Bidding", desc: "Live updates. Never miss a winning bid." },
-                  { icon: Trophy, title: "Trusted Community", desc: "Build your reputation with successful transactions." },
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-primary/20 flex items-center justify-center">
-                      <item.icon className="h-6 w-6 text-primary" weight="fill" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold mb-1">{item.title}</h3>
-                      <p className="text-gray-400 text-sm">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
+          <h2 className="font-heading text-2xl font-bold text-center mb-8">How BidCa Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[
+              { icon: Users, title: "Create Account", desc: "Sign up with your BC postal code" },
+              { icon: MagnifyingGlass, title: "Find Items", desc: "Search or browse categories" },
+              { icon: Gavel, title: "Place Bids", desc: "Set your maximum, we bid for you" },
+              { icon: Trophy, title: "Win & Pay", desc: "Secure payment, local pickup or ship" }
+            ].map((step, i) => (
+              <div key={i} className="text-center">
+                <div className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+                  <step.icon className="h-8 w-8" weight="fill" />
+                </div>
+                <h3 className="font-bold mb-2">{step.title}</h3>
+                <p className="text-sm text-muted-foreground">{step.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why BidCa */}
+      <section className="py-12" data-testid="features">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 border border-border">
+              <ShieldCheck className="h-10 w-10 text-primary mb-4" weight="fill" />
+              <h3 className="font-bold text-lg mb-2">Verified Sellers</h3>
+              <p className="text-sm text-muted-foreground">
+                All sellers are manually verified. Look for the verified badge for extra confidence.
+              </p>
             </div>
-            <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1559511260-66a654ae982a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwyfHx2YW5jb3V2ZXIlMjBza3lsaW5lfGVufDB8fHx8MTc3NDg5NjE4MXww&ixlib=rb-4.1.0&q=85"
-                alt="Vancouver Skyline"
-                className="w-full aspect-[4/3] object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-secondary/80 to-transparent" />
-              <div className="absolute bottom-6 left-6 right-6">
-                <p className="font-heading text-2xl font-bold">
-                  Proudly serving British Columbia
-                </p>
-              </div>
+            <div className="p-6 border border-border">
+              <Lightning className="h-10 w-10 text-primary mb-4" weight="fill" />
+              <h3 className="font-bold text-lg mb-2">Proxy Bidding</h3>
+              <p className="text-sm text-muted-foreground">
+                Set your max bid and we'll automatically bid for you up to that amount.
+              </p>
+            </div>
+            <div className="p-6 border border-border">
+              <Package className="h-10 w-10 text-primary mb-4" weight="fill" />
+              <h3 className="font-bold text-lg mb-2">Local & Shipping</h3>
+              <p className="text-sm text-muted-foreground">
+                Meet locally in BC or have items shipped. Your choice.
+              </p>
             </div>
           </div>
         </div>
@@ -368,22 +420,29 @@ export default function Home() {
 
       {/* CTA */}
       {!isAuthenticated && (
-        <section className="py-16 bg-primary" data-testid="cta-section">
+        <section className="py-12 bg-primary" data-testid="cta-section">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white mb-4">
-              Ready to Start Bidding?
+            <h2 className="font-heading text-2xl font-bold text-white mb-4">
+              Ready to Start?
             </h2>
             <p className="text-white/80 mb-6">
-              Join thousands of BC residents buying and selling locally.
+              Join thousands of BC residents buying and selling on BidCa.ca
             </p>
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-secondary font-bold hover:bg-gray-100 transition-colors"
-              data-testid="cta-register-btn"
-            >
-              Create Free Account
-              <ArrowRight className="h-5 w-5" />
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                to="/register"
+                className="px-8 py-3 bg-white text-primary font-bold hover:bg-gray-100 transition-colors"
+                data-testid="cta-register-btn"
+              >
+                Create Free Account
+              </Link>
+              <Link
+                to="/auctions"
+                className="px-8 py-3 border-2 border-white text-white font-bold hover:bg-white/10 transition-colors"
+              >
+                Browse Auctions
+              </Link>
+            </div>
           </div>
         </section>
       )}
