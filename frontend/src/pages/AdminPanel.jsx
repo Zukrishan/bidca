@@ -185,6 +185,21 @@ export default function AdminPanel() {
                       <p className="text-sm text-muted-foreground mb-1">Total Bids</p>
                       <p className="font-heading text-3xl font-bold">{stats.total_bids}</p>
                     </div>
+                    <div className="bg-white border border-border p-6" data-testid="stat-gmv">
+                      <p className="text-sm text-muted-foreground mb-1">Gross Merchandise Value</p>
+                      <p className="font-heading text-3xl font-bold text-green-600">
+                        ${(stats.total_gmv || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="bg-white border border-border p-6" data-testid="stat-revenue">
+                      <p className="text-sm text-muted-foreground mb-1">Platform Fee</p>
+                      <p className="font-heading text-2xl font-bold text-primary">Free</p>
+                      <p className="text-xs text-muted-foreground mt-1">No platform fees currently</p>
+                    </div>
+                    <div className="bg-white border border-border p-6" data-testid="stat-reports">
+                      <p className="text-sm text-muted-foreground mb-1">Pending Reports</p>
+                      <p className="font-heading text-3xl font-bold text-orange-600">{stats.pending_reports || 0}</p>
+                    </div>
                   </div>
                 )}
 

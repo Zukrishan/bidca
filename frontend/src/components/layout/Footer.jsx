@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Gavel, MapPin, EnvelopeSimple } from "@phosphor-icons/react";
+import { MapPin, EnvelopeSimple } from "@phosphor-icons/react";
 
 export default function Footer() {
   return (
@@ -10,12 +10,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <Gavel className="h-8 w-8 text-primary" weight="fill" />
-              <span className="font-heading font-bold text-xl">
-                <span className="text-primary">Bid</span>
-                <span className="text-white">Ca</span>
-                <span className="text-muted-foreground">.ca</span>
-              </span>
+              <img src="/logo_bidca.jpeg" alt="BidCa.ca" className="h-10 brightness-0 invert" />
             </div>
             <p className="text-gray-400 text-sm mb-4 max-w-sm">
               British Columbia's trusted local auction platform. Buy and sell with confidence in your community.

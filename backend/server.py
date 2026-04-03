@@ -340,11 +340,10 @@ async def register(user_data: UserRegister, response: Response):
     }
 
 @api_router.post("/auth/login")
-async def login(credentials: UserLogin, response: Response, request: Request):
+async def login(credentials: UserLogin, response: Response):
     email = credentials.email.lower()
     
-    client_ip = request.client.host if request.client else "unknown"
-    identifier = f"{client_ip}:{email}"
+    identifier = email  # Use email only for rate limiting (proxy IPs may vary)
     
     attempts = await db.login_attempts.find_one({"identifier": identifier})
     if attempts and attempts.get("count", 0) >= 5:
@@ -356,7 +355,9 @@ async def login(credentials: UserLogin, response: Response, request: Request):
     
     user = await db.users.find_one({"email": email})
     if not user:
-        await increment_login_attempts(identifier)
+        new_count = await increment_login_attempts(identifier)
+        if new_count >= 5:
+            raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     if user.get("is_banned"):
@@ -366,7 +367,9 @@ async def login(credentials: UserLogin, response: Response, request: Request):
         raise HTTPException(status_code=403, detail="Account has been suspended")
     
     if not verify_password(credentials.password, user["password_hash"]):
-        await increment_login_attempts(identifier)
+        new_count = await increment_login_attempts(identifier)
+        if new_count >= 5:
+            raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     await db.login_attempts.delete_one({"identifier": identifier})
@@ -398,7 +401,7 @@ def calculate_positive_percentage(user: dict) -> float:
     positive = user.get("positive_ratings", 0)
     return round((positive / total) * 100, 1)
 
-async def increment_login_attempts(identifier: str):
+async def increment_login_attempts(identifier: str) -> int:
     attempts = await db.login_attempts.find_one({"identifier": identifier})
     if attempts:
         new_count = attempts.get("count", 0) + 1
@@ -406,8 +409,10 @@ async def increment_login_attempts(identifier: str):
         if new_count >= 5:
             update["$set"]["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
         await db.login_attempts.update_one({"identifier": identifier}, update)
+        return new_count
     else:
         await db.login_attempts.insert_one({"identifier": identifier, "count": 1})
+        return 1
 
 @api_router.post("/auth/logout")
 async def logout(response: Response):
@@ -1222,7 +1227,7 @@ async def get_my_bids(user: dict = Depends(get_current_user)):
             if listing:
                 listing["_id"] = str(listing["_id"])
                 listing["seller_id"] = str(listing["seller_id"])
-                listing["my_max_bid"] = bid["max_bid"]
+                listing["my_max_bid"] = bid.get("max_bid", bid.get("amount", 0))
                 listing["is_winning"] = str(listing.get("highest_bidder_id")) == user["_id"]
                 bids_by_listing[bid["listing_id"]] = listing
     
@@ -1463,7 +1468,7 @@ async def admin_get_stats(admin: dict = Depends(require_admin)):
     pipeline = [{"$group": {"_id": None, "total": {"$sum": "$amount"}}}]
     result = await db.transactions.aggregate(pipeline).to_list(1)
     total_gmv = result[0]["total"] if result else 0
-    platform_revenue = total_gmv * 0.10
+    platform_revenue = 0  # Platform fee is free for now
     
     return {
         "total_users": total_users,
