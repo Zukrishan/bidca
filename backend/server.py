@@ -15,6 +15,7 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import secrets
+import hashlib
 import cloudinary
 import cloudinary.utils
 import time
@@ -31,13 +32,17 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Cloudinary configuration (MOCK)
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "mock_cloud_name"),
-    api_key=os.getenv("CLOUDINARY_API_KEY", "mock_api_key"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET", "mock_api_secret"),
-    secure=True
-)
+# Cloudinary configuration — only configured when env vars are present
+_cld_cloud = os.getenv("CLOUDINARY_CLOUD_NAME")
+_cld_key = os.getenv("CLOUDINARY_API_KEY")
+_cld_secret = os.getenv("CLOUDINARY_API_SECRET")
+if _cld_cloud and _cld_key and _cld_secret:
+    cloudinary.config(
+        cloud_name=_cld_cloud,
+        api_key=_cld_key,
+        api_secret=_cld_secret,
+        secure=True,
+    )
 
 # JWT Configuration
 JWT_ALGORITHM = "HS256"
@@ -229,6 +234,13 @@ class VerificationSubmit(BaseModel):
 class ReportCreate(BaseModel):
     reason: str
     description: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
 
 # Socket.IO setup
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
@@ -442,6 +454,64 @@ async def refresh_token(request: Request, response: Response):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
+# Forgot / reset password
+@api_router.post("/auth/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest):
+    """Always returns 200 to avoid user enumeration."""
+    from app.email import send_email
+    token_plain = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token_plain.encode()).hexdigest()
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+
+    user = await db.users.find_one({"email": body.email.lower()})
+    if user:
+        # Store hashed token; invalidate any previous tokens for this user
+        await db.password_reset_tokens.delete_many({"user_id": str(user["_id"])})
+        await db.password_reset_tokens.insert_one({
+            "user_id": str(user["_id"]),
+            "token_hash": token_hash,
+            "expires_at": expires_at,
+            "used": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        reset_url = f"{os.getenv('FRONTEND_URL', 'http://localhost:3100')}/reset-password?token={token_plain}"
+        await send_email(
+            to=user["email"],
+            subject="Reset your BidCa password",
+            html=f"<p>Click the link to reset your password (valid 1 hour):</p><p><a href='{reset_url}'>{reset_url}</a></p>",
+        )
+
+    return {"message": "If that email is registered you will receive a reset link."}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(body: ResetPasswordRequest):
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    record = await db.password_reset_tokens.find_one({
+        "token_hash": token_hash,
+        "used": False,
+        "expires_at": {"$gt": now_iso},
+    })
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    # Mark single-use
+    result = await db.password_reset_tokens.find_one_and_update(
+        {"_id": record["_id"], "used": False},
+        {"$set": {"used": True}},
+        return_document=True,
+    )
+    if result is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    new_hash = hash_password(body.password)
+    await db.users.update_one(
+        {"_id": ObjectId(record["user_id"])},
+        {"$set": {"password_hash": new_hash}},
+    )
+    return {"message": "Password reset successfully"}
+
 # Cloudinary signature
 @api_router.get("/cloudinary/signature")
 async def get_cloudinary_signature(
@@ -449,14 +519,19 @@ async def get_cloudinary_signature(
     folder: str = "bidca_uploads",
     user: dict = Depends(get_current_user)
 ):
+    cld_cloud = os.getenv("CLOUDINARY_CLOUD_NAME")
+    cld_key = os.getenv("CLOUDINARY_API_KEY")
+    cld_secret = os.getenv("CLOUDINARY_API_SECRET")
+    if not (cld_cloud and cld_key and cld_secret):
+        raise HTTPException(status_code=503, detail="Cloudinary is not configured")
     timestamp = int(time.time())
     params = {"timestamp": timestamp, "folder": folder, "resource_type": resource_type}
-    signature = cloudinary.utils.api_sign_request(params, os.getenv("CLOUDINARY_API_SECRET"))
+    signature = cloudinary.utils.api_sign_request(params, cld_secret)
     return {
         "signature": signature,
         "timestamp": timestamp,
-        "cloud_name": os.getenv("CLOUDINARY_CLOUD_NAME"),
-        "api_key": os.getenv("CLOUDINARY_API_KEY"),
+        "cloud_name": cld_cloud,
+        "api_key": cld_key,
         "folder": folder,
         "resource_type": resource_type
     }
@@ -1667,6 +1742,50 @@ async def get_user_profile(user_id: str):
         "member_since": user.get("created_at")
     }
 
+async def _seed_admin():
+    """Create or update the admin user. Refuses default/unset password in production (R8)."""
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@bidca.ca")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+    is_production = os.environ.get("ENV", "").lower() == "production"
+
+    if is_production and (not os.environ.get("ADMIN_PASSWORD") or admin_password == "admin123"):
+        logger.error(
+            "FATAL: ENV=production but ADMIN_PASSWORD is unset or still 'admin123'. "
+            "Admin seed skipped — set a strong ADMIN_PASSWORD before deploying."
+        )
+    else:
+        existing = await db.users.find_one({"email": admin_email})
+        if existing is None:
+            hashed = hash_password(admin_password)
+            await db.users.insert_one({
+                "email": admin_email,
+                "password_hash": hashed,
+                "full_name": "Admin",
+                "city": "Vancouver",
+                "postal_code": "V6B1A1",
+                "province": "British Columbia",
+                "role": "admin",
+                "verification_status": "verified",
+                "verification_badge": True,
+                "is_suspended": False,
+                "is_banned": False,
+                "seller_rating": 5.0,
+                "total_ratings": 0,
+                "positive_ratings": 0,
+                "neutral_ratings": 0,
+                "negative_ratings": 0,
+                "total_sales": 0,
+                "total_sales_amount": 0,
+                "total_purchases": 0,
+                "total_bids_placed": 0,
+                "auctions_won": 0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+            logger.info("Admin user seeded")
+        elif not verify_password(admin_password, existing["password_hash"]):
+            await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+            logger.info("Admin password updated")
+
 # Startup event
 @fastapi_app.on_event("startup")
 async def startup():
@@ -1685,47 +1804,20 @@ async def startup():
     await db.transactions.create_index([("seller_id", 1)])
     await db.login_attempts.create_index("identifier")
     
-    # Seed admin
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@bidca.ca")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
-    
-    existing = await db.users.find_one({"email": admin_email})
-    if existing is None:
-        hashed = hash_password(admin_password)
-        await db.users.insert_one({
-            "email": admin_email,
-            "password_hash": hashed,
-            "full_name": "Admin",
-            "city": "Vancouver",
-            "postal_code": "V6B1A1",
-            "province": "British Columbia",
-            "role": "admin",
-            "verification_status": "verified",
-            "verification_badge": True,
-            "is_suspended": False,
-            "is_banned": False,
-            "seller_rating": 5.0,
-            "total_ratings": 0,
-            "positive_ratings": 0,
-            "neutral_ratings": 0,
-            "negative_ratings": 0,
-            "total_sales": 0,
-            "total_sales_amount": 0,
-            "total_purchases": 0,
-            "total_bids_placed": 0,
-            "auctions_won": 0,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-        logger.info("Admin user seeded")
-    elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
-        logger.info("Admin password updated")
-    
+    await _seed_admin()
+
+    # Start background auction closer
+    from app.closer import start_closer
+    start_closer(db, sio)
+
     logger.info("BidCa.ca Full Auction Platform API started")
 
 @fastapi_app.on_event("shutdown")
 async def shutdown():
+    from app.closer import stop_closer
+    stop_closer()
     client.close()
+
 
 # Include router
 fastapi_app.include_router(api_router)
