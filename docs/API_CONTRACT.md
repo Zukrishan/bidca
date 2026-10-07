@@ -19,7 +19,7 @@ before Phase 4 starts. Base path `/api`; auth via httpOnly cookies; Socket.IO at
 | POST | `/auth/logout` |
 | GET | `/auth/me` |
 | POST | `/auth/refresh` |
-| GET | `/cloudinary/signature` |
+| GET | `/cloudinary/signature` (503 `Cloudinary is not configured` when env unset — `feature/p0-backend`) |
 | GET | `/categories` |
 | GET | `/cities` |
 | GET | `/provinces` |
@@ -68,9 +68,10 @@ before Phase 4 starts. Base path `/api`; auth via httpOnly cookies; Socket.IO at
 See `@sio.event` handlers at `server.py:237-258` (connect, disconnect, join/leave listing rooms). Bid
 updates are emitted to the listing room.
 
-## Planned additions (Phase 1 — not yet implemented)
+## Phase 1 additions (implemented on `feature/p0-backend`, not yet frozen)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/auth/forgot-password` | `{email}` → always 200 (no user enumeration) |
-| POST | `/auth/reset-password` | `{token, password}`; token single-use, 1h expiry, stored hashed |
-| — | background closer | every 30s: close due auctions, run due sniper bids, emit `auction_ended` |
+| POST | `/auth/forgot-password` | `{email}` → always 200 `{message}` (no user enumeration); emails reset link |
+| POST | `/auth/reset-password` | `{token, password}` → 200 `{message}`; 400 `Invalid or expired reset token`; token single-use, 1h expiry, stored sha256-hashed |
+| GET | `/cloudinary/signature` | now 503 `{"detail": "Cloudinary is not configured"}` when Cloudinary env vars unset |
+| — | background closer | every 30s: run due sniper bids, close due auctions (idempotent), notify winner+seller, emit `auction_ended` `{listing_id, status, sold_price?, winner_id?}` to room `auction_{listing_id}` |
