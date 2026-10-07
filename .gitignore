@@ -84,3 +84,6 @@ android-sdk/frontend/node_modules/.cache/default-development/0.pack
 # Environment files
 *.env
 *.env.*
+
+# local session cookies (never commit)
+cookies.txt
