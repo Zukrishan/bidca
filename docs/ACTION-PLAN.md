@@ -20,3 +20,6 @@ Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features ex
 | A4 | Freeze API_CONTRACT v1 | integrator | after Phase 2 |
 | A5 | Merge docs PR, then Phase 1 PR | user | open |
 | A6 | Frontend filters on `ended` (AdminPanel, SellerDashboard) but closed auctions are `sold`/`unsold` — tabs show nothing | Phase 4 | open |
+| A7 | Phase 2 router split (`feature/p2-router-split`, PR #6, stacked on #5) | integrator → user | **built**; route table + OpenAPI identical, live API results identical, test_p0 11/11 |
+| A8 | Phase 3 design proposal 1 (`docs/design/2026-10-07-stitch-simple/`) | client | awaiting sign-off (Q003); OpenDesign alternative pending (MCP not connecting) |
+| A9 | Phase 4 Next.js port of public routes | integrator | blocked on A4 (after #6 merges) + A8 sign-off |
