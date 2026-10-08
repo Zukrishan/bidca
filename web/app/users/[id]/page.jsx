@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { JsonLd } from "@/components/JsonLd";
 import { ListingGrid } from "@/components/ListingCard";
 import { FeedbackList } from "@/components/profile/FeedbackList";
 import { StatsRow } from "@/components/profile/StatsRow";
@@ -53,7 +54,7 @@ export default async function UserProfilePage({ params }) {
 
   return (
     <div className="flex flex-col gap-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(personLd) }} />
+      <JsonLd data={personLd} />
 
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { MapPin } from "lucide-react";
 
+import { JsonLd } from "@/components/JsonLd";
 import { ListingGrid } from "@/components/ListingCard";
 import { Badge } from "@/components/ui/badge";
 import { Gallery } from "@/components/listing/Gallery";
@@ -57,7 +58,6 @@ function ago(iso) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-const json = (o) => JSON.stringify(o).replace(/</g, "\\u003c");
 
 export default async function ListingPage({ params }) {
   await connection();
@@ -113,8 +113,8 @@ export default async function ListingPage({ params }) {
 
   return (
     <div className="flex flex-col gap-8 pb-24 lg:pb-0">{/* room for the sticky mobile bid bar */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json(productLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json(breadcrumbLd) }} />
+      <JsonLd data={productLd} />
+      <JsonLd data={breadcrumbLd} />
 
       {!isPublic && (
         <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm">

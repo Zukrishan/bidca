@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { JsonLd } from "@/components/JsonLd";
 import { ListingGrid } from "@/components/ListingCard";
 import { apiGet } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
@@ -35,7 +36,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col gap-12">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }} />
+      <JsonLd data={websiteLd} />
 
       <section className="flex flex-col gap-5">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Buy and sell locally across British Columbia.</h1>
