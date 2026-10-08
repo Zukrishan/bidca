@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, Literal
 from datetime import datetime, timezone
@@ -107,8 +108,8 @@ async def admin_get_users(
     query = {}
     if search:
         query["$or"] = [
-            {"email": {"$regex": search, "$options": "i"}},
-            {"full_name": {"$regex": search, "$options": "i"}}
+            {"email": {"$regex": re.escape(search), "$options": "i"}},
+            {"full_name": {"$regex": re.escape(search), "$options": "i"}}
         ]
     
     skip = (page - 1) * limit

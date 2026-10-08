@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import Optional
 from datetime import datetime, timezone, timedelta
@@ -105,8 +106,8 @@ async def get_listings(
     
     if q:
         query["$or"] = [
-            {"title": {"$regex": q, "$options": "i"}},
-            {"description": {"$regex": q, "$options": "i"}}
+            {"title": {"$regex": re.escape(q), "$options": "i"}},
+            {"description": {"$regex": re.escape(q), "$options": "i"}}
         ]
     if category:
         query["category"] = category
