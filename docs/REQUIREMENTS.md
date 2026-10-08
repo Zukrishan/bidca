@@ -17,4 +17,4 @@ Tick only when the named test passes. IDs map to `docs/srs/02-functional.md`.
 - [ ] R10 FR-01, FR-02 auth · [ ] R11 FR-05–08 listings & bidding · [ ] R12 FR-12–18
 
 ## Later
-- [ ] R20 FR-04 email verification · [ ] R21 FR-20 messaging · [ ] R22 NFR-01 Next.js SEO port
+- [ ] R20 FR-04 email verification · [ ] R21 FR-20 messaging · [x] R22 NFR-01 Next.js SEO port — `web/scripts/check-seo.mjs` all pass (dev + `next start`, 8 Oct 2026, `feature/p4-nextjs-public`)

@@ -1,4 +1,4 @@
-# ACTION-PLAN.md — current status (7 Oct 2026)
+# ACTION-PLAN.md — current status (8 Oct 2026)
 
 ## Where it stands
 Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features exist (see
@@ -22,7 +22,9 @@ Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features ex
 | A6 | Frontend filters on `ended` (AdminPanel, SellerDashboard) but closed auctions are `sold`/`unsold` — tabs show nothing | Phase 4 | open |
 | A7 | Phase 2 router split (`feature/p2-router-split`, PR #6, stacked on #5) | integrator → user | **built**; route table + OpenAPI identical, live API results identical, test_p0 11/11 |
 | A8 | Phase 3 design proposal 1 (`docs/design/2026-10-07-stitch-simple/`) | client | awaiting sign-off (Q003); OpenDesign alternative pending (MCP not connecting) |
-| A9 | Phase 4 Next.js port of public routes | integrator | blocked on A4 (after #6 merges) + A8 sign-off |
+| A9 | Phase 4 Next.js port of public routes (`feature/p4-nextjs-public`, stacked on #6) | integrator → user | **built**, R22 green; started before Q003 sign-off at user request (ASK-NOTES 8 Oct) — design is a token swap |
+| A10 | Phase 5 deploy | user | **ready, not deployed** — choose hosting (Q006), fix B10, then `docs/DEPLOY.md` |
+| A11 | Commit a `frontend/yarn.lock` (CRA has no lockfile; Docker builds are not reproducible) | integrator | open |
 
 ## Backend backlog (found during the v1 contract freeze, 8 Oct 2026)
 Not fixed yet; each needs its own PR with a test. Contract changes need a D-number.
@@ -30,7 +32,7 @@ Not fixed yet; each needs its own PR with a test. Contract changes need a D-numb
 | # | Issue | Priority |
 |---|---|---|
 | B1 | Socket.IO rooms need no auth — anyone can `join_user_notifications` for any user id and receive their notifications | **high** (security) |
-| B2 | `notification` socket emit fails: `create_notification` emits the dict after `insert_one` added a BSON `_id` (not JSON-serialisable); closer notifications are never emitted | high |
+| B2 | ~~`notification` socket emit fails~~ **fixed** on `feature/p4-nextjs-public` (crashed every outbidding bid with 500 when a socket client was connected); closer notifications still not pushed in real time —: `create_notification` emits the dict after `insert_one` added a BSON `_id` (not JSON-serialisable); closer notifications are never emitted | high |
 | B3 | Banned/suspended users keep access until token expiry (`get_current_user`, `/auth/refresh` don't check) | high (security) |
 | B4 | Best-offer accept marks the listing sold but creates no transaction/stats and emits nothing; doesn't check offer still pending / listing active | medium |
 | B5 | `auction_ended` has two payload shapes (buy-now vs closer) | medium |
@@ -40,3 +42,8 @@ Not fixed yet; each needs its own PR with a test. Contract changes need a D-numb
 | B9 | Auth responses differ in shape (register / login / me) | low |
 | B10 | Cookies `secure=False` — must be `True` behind HTTPS in production (Phase 5) | high before deploy |
 | B11 | CORS falls back to `http://localhost:3000` when `FRONTEND_URL` unset (should be :3100) | low |
+| B12 | ~~Search `q` passed to Mongo `$regex` raw (`(` → 500, pattern injection)~~ **fixed** (escaped) | — |
+| B13 | ~~Profile `active_listings` always 0; CRA profile's `seller_id` filter ignored by API~~ **fixed** (additive `seller_id` param) | — |
+| B14 | Price filters apply to `current_bid` only, so Buy-now listings don't match price ranges as expected | low |
+| B15 | Saved searches can't store city or listing type (`SavedSearchCreate`) | low |
+| B16 | Detail page calls `/auth/me` from three client components; share one fetch | low |
