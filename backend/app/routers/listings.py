@@ -91,6 +91,7 @@ async def get_listings(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     listing_type: Optional[str] = None,
+    seller_id: Optional[str] = None,
     seller_rating: Optional[float] = None,
     free_shipping: Optional[bool] = None,
     status: str = "active",
@@ -123,6 +124,8 @@ async def get_listings(
         query["current_bid"] = {**query.get("current_bid", {}), "$lte": max_price}
     if listing_type:
         query["listing_type"] = listing_type
+    if seller_id:
+        query["seller_id"] = seller_id
     if seller_rating:
         query["seller_rating"] = {"$gte": seller_rating}
     if free_shipping:

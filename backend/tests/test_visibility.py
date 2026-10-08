@@ -44,7 +44,8 @@ async def _setup():
             "role": role, "created_at": datetime.now(timezone.utc).isoformat(),
         })
         users[name] = create_access_token(str(res.inserted_id), f"{name}@vis.test")
-    seller_id = (await db.users.find_one({"email": "seller@vis.test"}))["_id"]
+    # listings store seller_id as the stringified user id, as POST /listings does
+    seller_id = str((await db.users.find_one({"email": "seller@vis.test"}))["_id"])
 
     listings = {}
     end = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
@@ -57,7 +58,7 @@ async def _setup():
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         listings[status] = str(res.inserted_id)
-    return srv, users, listings
+    return srv, users, listings, seller_id
 
 
 async def _get(srv, path, token=None):
@@ -69,7 +70,7 @@ async def _get(srv, path, token=None):
 
 @pytest.mark.asyncio
 async def test_unapproved_listing_hidden_from_public():
-    srv, users, listings = await _setup()
+    srv, users, listings, _ = await _setup()
     for status in ("pending", "rejected"):
         assert (await _get(srv, f"/api/listings/{listings[status]}")).status_code == 404
         assert (await _get(srv, f"/api/listings/{listings[status]}", users["stranger"])).status_code == 404
@@ -77,7 +78,7 @@ async def test_unapproved_listing_hidden_from_public():
 
 @pytest.mark.asyncio
 async def test_unapproved_listing_visible_to_seller_and_admin():
-    srv, users, listings = await _setup()
+    srv, users, listings, _ = await _setup()
     for who in ("seller", "admin"):
         resp = await _get(srv, f"/api/listings/{listings['pending']}", users[who])
         assert resp.status_code == 200, f"{who}: {resp.status_code}"
@@ -86,14 +87,14 @@ async def test_unapproved_listing_visible_to_seller_and_admin():
 
 @pytest.mark.asyncio
 async def test_public_statuses_still_visible():
-    srv, users, listings = await _setup()
+    srv, users, listings, _ = await _setup()
     for status in ("active", "sold"):
         assert (await _get(srv, f"/api/listings/{listings[status]}")).status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_browse_rejects_non_public_status():
-    srv, _, _ = await _setup()
+    srv, _, _, _ = await _setup()
     assert (await _get(srv, "/api/listings?status=pending")).status_code == 400
     assert (await _get(srv, "/api/listings?status=rejected")).status_code == 400
     resp = await _get(srv, "/api/listings?status=active&q=VIS")
@@ -103,8 +104,18 @@ async def test_browse_rejects_non_public_status():
 
 @pytest.mark.asyncio
 async def test_proxy_max_bid_never_exposed():
-    srv, users, listings = await _setup()
+    srv, users, listings, _ = await _setup()
     detail = (await _get(srv, f"/api/listings/{listings['active']}", users["seller"])).json()
     assert "highest_bidder_max_bid" not in detail
     browse = (await _get(srv, "/api/listings?status=active&q=VIS")).json()["listings"]
     assert browse and all("highest_bidder_max_bid" not in l for l in browse)
+
+
+@pytest.mark.asyncio
+async def test_browse_filters_by_seller_and_profile_counts_listings():
+    srv, _, _, seller_id = await _setup()
+    resp = (await _get(srv, f"/api/listings?status=active&seller_id={seller_id}")).json()
+    assert [l["title"] for l in resp["listings"]] == ["VIS active"]
+    assert (await _get(srv, "/api/listings?status=active&seller_id=000000000000000000000000")).json()["total"] == 0
+    profile = (await _get(srv, f"/api/users/{seller_id}/profile")).json()
+    assert profile["active_listings"] == 1
