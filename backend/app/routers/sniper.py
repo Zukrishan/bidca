@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 
 from app.db import db
-from app.security import get_current_user
+from app.security import get_current_user, require_verified_email
 from app.models import SniperBidCreate
 
 router = APIRouter()
@@ -11,7 +11,7 @@ router = APIRouter()
 
 # Sniper Bid
 @router.post("/listings/{listing_id}/sniper-bid")
-async def create_sniper_bid(listing_id: str, sniper: SniperBidCreate, user: dict = Depends(get_current_user)):
+async def create_sniper_bid(listing_id: str, sniper: SniperBidCreate, user: dict = Depends(require_verified_email)):
     try:
         listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     except:

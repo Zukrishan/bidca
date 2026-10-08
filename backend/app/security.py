@@ -85,6 +85,13 @@ async def require_admin(request: Request) -> dict:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
+async def require_verified_email(request: Request) -> dict:
+    """get_current_user, plus a confirmed email address (FR-04). A missing flag counts as unverified."""
+    user = await get_current_user(request)
+    if not user.get("email_verified", False):
+        raise HTTPException(status_code=403, detail="Verify your email address to continue")
+    return user
+
 async def increment_login_attempts(identifier: str) -> int:
     attempts = await db.login_attempts.find_one({"identifier": identifier})
     if attempts:

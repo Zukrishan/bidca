@@ -12,6 +12,7 @@ from app.security import (
 from app.constants import is_valid_bc_postal_code
 from app.models import UserLogin, UserRegister
 from app.helpers import calculate_positive_percentage
+from app.email_verification import issue_verification_email
 
 router = APIRouter()
 
@@ -36,6 +37,7 @@ async def register(user_data: UserRegister, response: Response):
         "postal_code": user_data.postal_code.upper().replace(" ", ""),
         "province": user_data.province,
         "role": "user",
+        "email_verified": False,
         "verification_status": "unverified",
         "verification_badge": False,
         "is_suspended": False,
@@ -62,6 +64,8 @@ async def register(user_data: UserRegister, response: Response):
     refresh_token = create_refresh_token(user_id)
     
     set_auth_cookies(response, access_token, refresh_token)
+
+    await issue_verification_email(user_id, email)
     
     return {
         "id": user_id,
@@ -69,7 +73,8 @@ async def register(user_data: UserRegister, response: Response):
         "full_name": user_data.full_name,
         "city": user_data.city,
         "role": "user",
-        "verification_status": "unverified"
+        "verification_status": "unverified",
+        "email_verified": False,
     }
 
 @router.post("/auth/login")
@@ -119,6 +124,7 @@ async def login(credentials: UserLogin, response: Response):
         "city": user["city"],
         "role": user["role"],
         "verification_status": user["verification_status"],
+        "email_verified": user.get("email_verified", False),
         "verification_badge": user.get("verification_badge", False),
         "seller_rating": user.get("seller_rating", 0),
         "total_ratings": user.get("total_ratings", 0),
