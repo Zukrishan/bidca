@@ -5,7 +5,7 @@ export default function robots() {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/dashboard", "/seller", "/watchlist", "/create-listing", "/verification", "/admin", "/login", "/register", "/verify-email"],
+      disallow: ["/dashboard", "/seller", "/watchlist", "/create-listing", "/verification", "/messages", "/admin", "/login", "/register", "/verify-email"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
