@@ -7,6 +7,7 @@ from app.db import db
 from app.security import (
     JWT_ALGORITHM, get_jwt_secret, hash_password, verify_password, create_access_token,
     create_refresh_token, increment_login_attempts, get_current_user,
+    account_block_reason, set_auth_cookies, clear_auth_cookies,
 )
 from app.constants import is_valid_bc_postal_code
 from app.models import UserLogin, UserRegister
@@ -60,8 +61,7 @@ async def register(user_data: UserRegister, response: Response):
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    set_auth_cookies(response, access_token, refresh_token)
     
     return {
         "id": user_id,
@@ -93,12 +93,6 @@ async def login(credentials: UserLogin, response: Response):
             raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    if user.get("is_banned"):
-        raise HTTPException(status_code=403, detail="Account has been banned")
-    
-    if user.get("is_suspended"):
-        raise HTTPException(status_code=403, detail="Account has been suspended")
-    
     if not verify_password(credentials.password, user["password_hash"]):
         new_count = await increment_login_attempts(identifier)
         if new_count >= 5:
@@ -106,13 +100,17 @@ async def login(credentials: UserLogin, response: Response):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     await db.login_attempts.delete_one({"identifier": identifier})
+
+    # Only after the password checks out, so account state isn't revealed to guessers
+    blocked = account_block_reason(user)
+    if blocked:
+        raise HTTPException(status_code=403, detail=blocked)
     
     user_id = str(user["_id"])
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    set_auth_cookies(response, access_token, refresh_token)
     
     return {
         "id": user_id,
@@ -129,8 +127,7 @@ async def login(credentials: UserLogin, response: Response):
 
 @router.post("/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    clear_auth_cookies(response)
     return {"message": "Logged out successfully"}
 
 @router.get("/auth/me")
@@ -149,8 +146,11 @@ async def refresh_token(request: Request, response: Response):
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        blocked = account_block_reason(user)
+        if blocked:
+            raise HTTPException(status_code=403, detail=blocked)
         access_token = create_access_token(str(user["_id"]), user["email"])
-        response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
+        set_auth_cookies(response, access_token)
         return {"message": "Token refreshed"}
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
