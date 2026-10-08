@@ -1,6 +1,6 @@
 # Deploying BidCa (container setup)
 
-> **Not deployed. Blocked on Q006 (hosting target) and B10 (cookies are `secure=False`).**
+> **Not deployed. Blocked on Q006 (hosting target).** (B10 secure cookies: fixed — Secure whenever `ENV=production`.)
 > This document describes a host-agnostic Docker setup only.
 
 ## Architecture
@@ -39,7 +39,8 @@ The `web` image uses Next's `output: "standalone"` (server bundle without the fu
 | `DB_NAME` | api | Mongo database name (compose sets `MONGO_URL=mongodb://mongo:27017`) |
 | `JWT_SECRET` | api | Required. >= 32 random bytes (`openssl rand -hex 32`) |
 | `FRONTEND_URL` | api | CORS origin. Must equal the public site origin exactly |
-| `ENV` | api | `production` refuses the default admin password |
+| `ENV` | api | `production` refuses the default admin password and makes auth cookies `Secure` |
+| `COOKIE_SECURE` | api | Optional override (`true`/`false`) of the Secure cookie flag |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | api | Seed admin. Strong password required in production. Use a real domain: login validates the address and rejects reserved TLDs (`.test`, `.local`, `.localhost`), so such an admin is seeded but can never sign in |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | api | Optional; mock email if unset |
 | `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET` | api | Optional; mock uploads if unset |
@@ -51,7 +52,7 @@ The `web` image uses Next's `output: "standalone"` (server bundle without the fu
 ## Production checklist
 
 - [ ] Terminate HTTPS in front (reverse proxy / platform edge). The api runs with `--proxy-headers`.
-- [ ] **Fix B10**: auth cookies are currently `secure=False`. Must be `secure=True` (and a sensible `samesite`) before going live.
+- [x] B10: auth cookies are `Secure` + `HttpOnly` + `SameSite=Lax` when `ENV=production` (`COOKIE_SECURE` overrides). Serve the site over HTTPS or logins won't stick (browsers only exempt `localhost`).
 - [ ] `FRONTEND_URL` equals the public site origin (e.g. `https://bidca.ca`).
 - [ ] Use same-site domains so cookies work: site `bidca.ca`, API `api.bidca.ca`.
 - [ ] `ENV=production`, strong `ADMIN_PASSWORD`, fresh `JWT_SECRET`.

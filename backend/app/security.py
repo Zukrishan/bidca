@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 
 from app.db import db
 
@@ -34,6 +34,35 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
 
 # Auth helper
+def account_block_reason(user: dict) -> Optional[str]:
+    """Why this account may not use the site, or None. Checked on login, every request and refresh."""
+    if user.get("is_banned"):
+        return "Account has been banned"
+    if user.get("is_suspended"):
+        return "Account has been suspended"
+    return None
+
+async def user_from_access_token(token: str) -> dict:
+    """Resolve an access token to an active user (no password_hash). Raises HTTPException 401/403."""
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token type")
+    user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    # Bans and suspensions take effect immediately, not when the token expires (backlog B3)
+    blocked = account_block_reason(user)
+    if blocked:
+        raise HTTPException(status_code=403, detail=blocked)
+    user["_id"] = str(user["_id"])
+    user.pop("password_hash", None)
+    return user
+
 async def get_current_user(request: Request) -> dict:
     token = request.cookies.get("access_token")
     if not token:
@@ -42,20 +71,7 @@ async def get_current_user(request: Request) -> dict:
             token = auth_header[7:]
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        user["_id"] = str(user["_id"])
-        user.pop("password_hash", None)
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    return await user_from_access_token(token)
 
 async def get_optional_user(request: Request) -> Optional[dict]:
     try:
@@ -81,3 +97,27 @@ async def increment_login_attempts(identifier: str) -> int:
     else:
         await db.login_attempts.insert_one({"identifier": identifier, "count": 1})
         return 1
+
+# Auth cookies (contract D5). Secure by default in production (backlog B10); COOKIE_SECURE=true|false overrides.
+ACCESS_TOKEN_MAX_AGE = 3600
+REFRESH_TOKEN_MAX_AGE = 604800
+
+def cookies_secure() -> bool:
+    # Empty counts as unset: docker compose passes COOKIE_SECURE="" when .env leaves it blank
+    explicit = os.environ.get("COOKIE_SECURE", "").strip()
+    if explicit:
+        return explicit.lower() in ("1", "true", "yes")
+    return os.environ.get("ENV", "").lower() == "production"
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: Optional[str] = None) -> None:
+    secure = cookies_secure()
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=secure,
+                        samesite="lax", max_age=ACCESS_TOKEN_MAX_AGE, path="/")
+    if refresh_token:
+        response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=secure,
+                            samesite="lax", max_age=REFRESH_TOKEN_MAX_AGE, path="/")
+
+def clear_auth_cookies(response: Response) -> None:
+    secure = cookies_secure()
+    for key in ("access_token", "refresh_token"):
+        response.delete_cookie(key, path="/", secure=secure, httponly=True, samesite="lax")

@@ -4,13 +4,13 @@ load_dotenv()
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 import socketio
-import os
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+from app.config import frontend_origin
 from app.db import client, db  # MongoDB connection (created at import time)
 from app.security import get_current_user, get_optional_user, require_admin  # noqa: F401 — re-exported for tests/dependency_overrides
 from app.realtime import sio
@@ -66,7 +66,7 @@ for _r in (
 # CORS
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.environ.get("FRONTEND_URL", "http://localhost:3000")],
+    allow_origins=[frontend_origin()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

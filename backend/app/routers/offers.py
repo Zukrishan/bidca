@@ -7,6 +7,7 @@ from app.db import db
 from app.security import get_current_user
 from app.models import BestOfferCreate
 from app.helpers import create_notification
+from app.sales import complete_sale
 
 router = APIRouter()
 
@@ -63,24 +64,24 @@ async def respond_to_offer(
         raise HTTPException(status_code=404, detail="Offer not found")
     
     listing = await db.listings.find_one({"_id": ObjectId(offer["listing_id"])})
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
     if str(listing["seller_id"]) != user["_id"]:
         raise HTTPException(status_code=403, detail="Only the seller can respond to offers")
+    if offer.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="This offer has already been answered")
     
     if action == "accept":
-        # Accept offer and end listing
+        if listing.get("status") != "active":
+            raise HTTPException(status_code=409, detail="This listing has already ended")
+        # Same ending as Buy It Now: atomic sold transition, transaction, stats, notifications
+        await complete_sale(listing, offer["buyer_id"], offer["amount"], "best_offer", offer_id=offer_id)
         await db.offers.update_one({"_id": ObjectId(offer_id)}, {"$set": {"status": "accepted"}})
-        await db.listings.update_one(
-            {"_id": ObjectId(offer["listing_id"])},
-            {
-                "$set": {
-                    "status": "sold",
-                    "winner_id": offer["buyer_id"],
-                    "sold_price": offer["amount"],
-                    "sold_via": "best_offer"
-                }
-            }
+        # Any other open offers on the item can no longer be accepted
+        await db.offers.update_many(
+            {"listing_id": offer["listing_id"], "status": "pending", "_id": {"$ne": ObjectId(offer_id)}},
+            {"$set": {"status": "declined"}},
         )
-        
         await create_notification(
             offer["buyer_id"],
             "offer_accepted",

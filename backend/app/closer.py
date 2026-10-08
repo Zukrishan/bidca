@@ -54,7 +54,14 @@ async def _create_notification(db, user_id: str, type_: str, message: str, listi
         "read": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    await db.notifications.insert_one(notification)
+    result = await db.notifications.insert_one(notification)
+    notification["_id"] = str(result.inserted_id)  # JSON-safe for the Socket.IO push
+    # Real-time push is best effort; the stored notification is the source of truth (backlog B2)
+    try:
+        from app.realtime import send_user_notification
+        await send_user_notification(user_id, notification)
+    except Exception as exc:
+        logger.error("Notification push failed for user %s: %s", user_id, exc)
     return notification
 
 
