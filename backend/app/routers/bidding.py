@@ -104,7 +104,8 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
         "listing_id": listing_id,
         "bidder_id": user["_id"],
         "bidder_name": user["full_name"],
-        "amount": new_current_bid,
+        # A losing bid is recorded at the bidder's own maximum; a winning one at the new price
+        "amount": new_current_bid if str(new_highest_bidder) == user["_id"] else bid.max_bid,
         "max_bid": bid.max_bid,
         "is_auto_bid": False,
         "created_at": datetime.now(timezone.utc).isoformat()
