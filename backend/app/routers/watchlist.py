@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.db import db
 from app.security import get_current_user
+from app.helpers import parse_object_id
 
 router = APIRouter()
 
@@ -11,12 +12,15 @@ router = APIRouter()
 # Watchlist
 @router.post("/listings/{listing_id}/watch")
 async def watch_listing(listing_id: str, user: dict = Depends(get_current_user)):
+    oid = parse_object_id(listing_id, "Listing not found")
+    if not await db.listings.find_one({"_id": oid}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Listing not found")
     existing = await db.watchlist.find_one({"user_id": user["_id"], "listing_id": listing_id})
     
     if existing:
         # Remove from watchlist
         await db.watchlist.delete_one({"_id": existing["_id"]})
-        await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"watchers_count": -1}})
+        await db.listings.update_one({"_id": oid}, {"$inc": {"watchers_count": -1}})
         return {"watching": False, "message": "Removed from watchlist"}
     else:
         # Add to watchlist
@@ -25,7 +29,7 @@ async def watch_listing(listing_id: str, user: dict = Depends(get_current_user))
             "listing_id": listing_id,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
-        await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"watchers_count": 1}})
+        await db.listings.update_one({"_id": oid}, {"$inc": {"watchers_count": 1}})
         return {"watching": True, "message": "Added to watchlist"}
 
 @router.get("/users/me/watchlist")

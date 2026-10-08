@@ -3,6 +3,7 @@ from bson import ObjectId
 
 from app.db import db
 from app.security import get_current_user
+from app.helpers import parse_object_id
 
 router = APIRouter()
 
@@ -23,7 +24,7 @@ async def get_notifications(user: dict = Depends(get_current_user), limit: int =
 @router.put("/notifications/{notification_id}/read")
 async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
     await db.notifications.update_one(
-        {"_id": ObjectId(notification_id), "user_id": user["_id"]},
+        {"_id": parse_object_id(notification_id, "Notification not found"), "user_id": user["_id"]},
         {"$set": {"read": True}}
     )
     return {"message": "Marked as read"}

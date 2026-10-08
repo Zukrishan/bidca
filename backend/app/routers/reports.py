@@ -4,6 +4,7 @@ from bson import ObjectId
 
 from app.db import db
 from app.security import get_current_user
+from app.helpers import parse_object_id
 from app.models import ReportCreate
 
 router = APIRouter()
@@ -12,7 +13,7 @@ router = APIRouter()
 # Reporting
 @router.post("/listings/{listing_id}/report")
 async def report_listing(listing_id: str, report: ReportCreate, user: dict = Depends(get_current_user)):
-    listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
+    listing = await db.listings.find_one({"_id": parse_object_id(listing_id, "Listing not found")})
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     

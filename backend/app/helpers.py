@@ -1,3 +1,7 @@
+from bson import ObjectId
+from bson.errors import InvalidId
+from fastapi import HTTPException
+
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -35,3 +39,11 @@ async def create_notification(user_id: str, type: str, message: str, listing_id:
         await send_user_notification(user_id, notification)
     except Exception as exc:
         logger.error("Notification push failed for user %s: %s", user_id, exc)
+
+
+def parse_object_id(value: str, not_found: str = "Not found") -> ObjectId:
+    """Parse a path id into an ObjectId; a malformed id is a 404 (`not_found`), never a 500."""
+    try:
+        return ObjectId(value)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=404, detail=not_found)

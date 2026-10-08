@@ -7,7 +7,7 @@ from bson import ObjectId
 from app.db import db
 from app.security import require_admin
 from app.models import ListingUpdate, UserUpdate
-from app.helpers import calculate_positive_percentage, create_notification
+from app.helpers import calculate_positive_percentage, create_notification, parse_object_id
 from app.search_alerts import alert_saved_searches
 
 router = APIRouter()
@@ -73,13 +73,16 @@ async def admin_update_listing(listing_id: str, update: ListingUpdate, backgroun
     if not update_dict:
         raise HTTPException(status_code=400, detail="No updates provided")
     
-    before = await db.listings.find_one({"_id": ObjectId(listing_id)}, {"status": 1})
-    result = await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$set": update_dict})
-    if result.modified_count == 0:
+    oid = parse_object_id(listing_id, "Listing not found")
+    before = await db.listings.find_one({"_id": oid}, {"status": 1})
+    result = await db.listings.update_one({"_id": oid}, {"$set": update_dict})
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
-    if listing:
+    listing = await db.listings.find_one({"_id": oid})
+    # Nothing changed (same status again): no second notification, no alerts
+    changed = result.modified_count > 0 and not (before and before.get("status") == update.status)
+    if listing and changed:
         await create_notification(
             str(listing["seller_id"]),
             "listing_status",
@@ -94,11 +97,12 @@ async def admin_update_listing(listing_id: str, update: ListingUpdate, backgroun
 
 @router.delete("/admin/listings/{listing_id}")
 async def admin_delete_listing(listing_id: str, admin: dict = Depends(require_admin)):
-    listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
+    oid = parse_object_id(listing_id, "Listing not found")
+    listing = await db.listings.find_one({"_id": oid})
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    await db.listings.delete_one({"_id": ObjectId(listing_id)})
+    await db.listings.delete_one({"_id": oid})
     await db.bids.delete_many({"listing_id": listing_id})
     
     return {"message": "Listing deleted"}
@@ -135,8 +139,8 @@ async def admin_update_user(user_id: str, update: UserUpdate, admin: dict = Depe
     if not update_dict:
         raise HTTPException(status_code=400, detail="No updates provided")
     
-    result = await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": update_dict})
-    if result.modified_count == 0:
+    result = await db.users.update_one({"_id": parse_object_id(user_id, "User not found")}, {"$set": update_dict})
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
     return {"message": "User updated"}
@@ -166,12 +170,13 @@ async def admin_review_verification(
     status: Literal["approved", "rejected"],
     admin: dict = Depends(require_admin)
 ):
-    verification = await db.verifications.find_one({"_id": ObjectId(verification_id)})
+    vid = parse_object_id(verification_id, "Verification not found")
+    verification = await db.verifications.find_one({"_id": vid})
     if not verification:
         raise HTTPException(status_code=404, detail="Verification not found")
     
     await db.verifications.update_one(
-        {"_id": ObjectId(verification_id)},
+        {"_id": vid},
         {"$set": {"status": status, "reviewed_at": datetime.now(timezone.utc).isoformat()}}
     )
     
