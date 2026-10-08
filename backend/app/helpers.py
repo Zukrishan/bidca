@@ -15,14 +15,16 @@ def calculate_positive_percentage(user: dict) -> float:
     positive = user.get("positive_ratings", 0)
     return round((positive / total) * 100, 1)
 
-async def create_notification(user_id: str, type: str, message: str, listing_id: Optional[str] = None):
+async def create_notification(user_id: str, type: str, message: str, listing_id: Optional[str] = None,
+                              extra: Optional[dict] = None):
     notification = {
         "user_id": user_id,
         "type": type,
         "message": message,
         "listing_id": listing_id,
         "read": False,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        **(extra or {}),
     }
     result = await db.notifications.insert_one(notification)
     # insert_one adds a BSON ObjectId _id to the dict, which Socket.IO can't serialise
