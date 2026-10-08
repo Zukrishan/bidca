@@ -30,8 +30,9 @@ async def send_email(to: str, subject: str, html: str) -> None:
             to,
             subject,
         )
-        # Dev convenience: let developers click verification/reset links. Never in production.
-        if os.getenv("ENV", "").lower() != "production":
+        # Dev convenience, opt-in only: bodies carry verification/reset tokens, so logging them must
+        # never happen by accident (e.g. a server that forgot ENV). Never in production, even if set.
+        if os.getenv("EMAIL_LOG_BODIES", "").lower() in ("1", "true") and os.getenv("ENV", "").lower() != "production":
             logger.info("send_email (mock) body: %s", html)
         return
 

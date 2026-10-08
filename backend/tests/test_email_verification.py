@@ -190,17 +190,22 @@ async def test_seeded_admin_is_verified():
 
 
 @pytest.mark.asyncio
-async def test_mock_email_logs_body_only_outside_production(caplog):
+@pytest.mark.parametrize("env,opt_in,logged", [
+    ("development", "1", True),     # explicit developer opt-in
+    ("development", None, False),   # default: never log token-bearing bodies
+    ("", None, False),              # a server that forgot ENV must not leak tokens
+    ("production", "1", False),     # never in production, even if opted in
+])
+async def test_mock_email_logs_body_only_when_opted_in(caplog, env, opt_in, logged):
     from app.email import send_email
     html = "<a href='http://x/verify-email?token=SECRETLINK'>go</a>"
-    with patch.dict(os.environ, {"ENV": "development"}):
+    overrides = {"ENV": env}
+    if opt_in is not None:
+        overrides["EMAIL_LOG_BODIES"] = opt_in
+    with patch.dict(os.environ, overrides):
         os.environ.pop("SENDGRID_API_KEY", None)
+        if opt_in is None:
+            os.environ.pop("EMAIL_LOG_BODIES", None)
         with caplog.at_level("INFO", logger="app.email"):
             await send_email("a@b.c", "s", html)
-    assert "SECRETLINK" in caplog.text
-    caplog.clear()
-    with patch.dict(os.environ, {"ENV": "production"}):
-        os.environ.pop("SENDGRID_API_KEY", None)
-        with caplog.at_level("INFO", logger="app.email"):
-            await send_email("a@b.c", "s", html)
-    assert "SECRETLINK" not in caplog.text
+    assert ("SECRETLINK" in caplog.text) is logged
