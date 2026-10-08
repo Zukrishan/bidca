@@ -10,10 +10,11 @@ what outranks what), then `docs/ACTION-PLAN.md` for current status.
 | `backend/server.py` | thin assembly: FastAPI app, startup/shutdown, CORS, Socket.IO ASGI wrapper (`app`) |
 | `backend/app/routers/*.py` | all `/api` endpoints, one router per area, mounted in order in `server.py` (route order matters) |
 | `backend/app/{db,security,constants,models,realtime,helpers,seed}.py` | shared backend code |
+| `backend/app/{sales,search_alerts,email_verification}.py` | finishing sales (buy now / offers), saved-search alerts, verification tokens |
 | `backend/app/closer.py`, `email.py` | 30s auction closer + sniper executor; `send_email()` (SendGrid or log) |
 | `backend/tests/` | pytest with mongomock-motor (`conftest.py` shares one client); `test_bidca_features.py` + `backend_test.py` are Emergent-era and need a live server |
 | `backend/scripts/seed_demo.py` | demo data through the API (dev only) |
-| `web/` | Next.js 16 public pages (`/`, `/auctions`, `/auctions/[id]`, `/users/[id]`, sitemap, robots) on :3100; everything else falls back to CRA |
+| `web/` | Next.js 16 on :3100: public pages (`/`, `/auctions`, `/auctions/[id]`, `/users/[id]`, sitemap, robots) plus `/verify-email` and `/messages`; everything else falls back to CRA |
 | `frontend/` | React 19 CRA via craco — the not-yet-ported routes (login, dashboard, sell, admin) on :3101 behind `web` |
 | `docker-compose.yml`, `*/Dockerfile`, `.env.example` | container setup — see `docs/DEPLOY.md` |
 | `memory/PRD.md` | Emergent PRD — rank 6, superseded by `docs/srs/` |
@@ -22,14 +23,15 @@ what outranks what), then `docs/ACTION-PLAN.md` for current status.
 ## Run
 
 ```bash
-cd backend && uvicorn server:app --port 8100 --reload   # needs MONGO_URL, DB_NAME, JWT_SECRET, FRONTEND_URL=http://localhost:3100
+cd backend && EMAIL_LOG_BODIES=1 uvicorn server:app --port 8100 --reload   # needs MONGO_URL, DB_NAME, JWT_SECRET, FRONTEND_URL=http://localhost:3100
 cd frontend && PORT=3101 WDS_SOCKET_PORT=3101 REACT_APP_BACKEND_URL=http://localhost:8100 npx craco start
 cd web && npm run dev                                    # :3100; NEXT_PUBLIC_API_URL / CRA_ORIGIN default to :8100 / :3101
 ```
 
 Open http://localhost:3100 — it serves the public pages and proxies the rest to CRA.
 `app` is the Socket.IO ASGI wrapper (`/api/socket.io`); `fastapi_app` is the inner app.
-Cloudinary and SendGrid read env vars and fall back to mocks when unset.
+Cloudinary and SendGrid read env vars and fall back to mocks when unset. With no SendGrid key, `EMAIL_LOG_BODIES=1`
+(dev only — never in production) logs email bodies so you can click verification/reset links.
 Whole stack in containers: `cp .env.example .env && docker compose up --build`.
 
 ## Test

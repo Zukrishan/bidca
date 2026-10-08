@@ -36,15 +36,15 @@ Not fixed yet; each needs its own PR with a test. Contract changes need a D-numb
 | B3 | ~~Banned/suspended users keep access until token expiry (`get_current_user`, `/auth/refresh` don't check)~~ **fixed** on `feature/p6-security-hardening` — blocked on every request, refresh and socket; login no longer leaks ban state | — |
 | B4 | ~~Best-offer accept marks the listing sold but creates no transaction/stats and emits nothing; doesn't check offer still pending / listing active~~ **fixed** on `feature/p6-security-hardening` — shared `complete_sale`: transaction, stats, notifications, atomic | — |
 | B5 | ~~`auction_ended` has two payload shapes (buy-now vs closer)~~ **fixed** on `feature/p6-security-hardening` — one shape | — |
-| B6 | Several routes 500 on a malformed id (`ObjectId()` outside try): watch, report, saved-search delete, notification read, admin PUT/DELETE; watch doesn't check the listing exists | medium |
-| B7 | Bidding: no anti-snipe end-time extension; odd `highest_bidder_name` when a new bid loses to an existing proxy; best-offer doesn't check listing active; sniper max not validated against min bid | medium |
-| B8 | `PUT /admin/listings/{id}` returns 404 when the status is unchanged (`modified_count == 0`) | low |
+| B6 | ~~Several routes 500 on a malformed id (`ObjectId()` outside try): watch, report, saved-search delete, notification read, admin PUT/DELETE; watch doesn't check the listing exists~~ **fixed** on `feature/p8-backlog` — one `parse_object_id` helper; watch 404s for unknown listings | — |
+| B7 | Bidding: ~~odd losing-bid record; best-offer on inactive listings; snipe max not validated~~ **fixed** on `feature/p8-backlog`. Still open: **anti-snipe end-time extension** — needs a product decision | decision |
+| B8 | ~~`PUT /admin/listings/{id}` returns 404 when the status is unchanged (`modified_count == 0`)~~ **fixed** on `feature/p8-backlog` — `matched_count`; no re-notification | — |
 | B9 | Auth responses differ in shape (register / login / me) | low |
 | B10 | ~~Cookies `secure=False` — must be `True` behind HTTPS in production (Phase 5)~~ **fixed** on `feature/p6-security-hardening` — Secure when `ENV=production` | — |
 | B11 | ~~CORS falls back to `http://localhost:3000` when `FRONTEND_URL` unset (should be :3100)~~ **fixed** on `feature/p6-security-hardening` — default :3100 | — |
 | B12 | ~~Search `q` passed to Mongo `$regex` raw (`(` → 500, pattern injection)~~ **fixed** (escaped) | — |
 | B13 | ~~Profile `active_listings` always 0; CRA profile's `seller_id` filter ignored by API~~ **fixed** (additive `seller_id` param) | — |
-| B14 | Price filters apply to `current_bid` only, so Buy-now listings don't match price ranges as expected | low |
-| B15 | Saved searches can't store city or listing type (`SavedSearchCreate`) | low |
-| B16 | Detail page calls `/auth/me` from three client components; share one fetch | low |
+| B14 | ~~Price filters apply to `current_bid` only, so Buy-now listings don't match price ranges as expected~~ **fixed** on `feature/p8-backlog` — Buy-now price for fixed-price listings | — |
+| B15 | ~~Saved searches can't store city or listing type (`SavedSearchCreate`)~~ **fixed** on `feature/p8-backlog` — `city` + `listing_type` stored and matched | — |
+| B16 | ~~Detail page calls `/auth/me` from three client components; share one fetch~~ **fixed** on `feature/p8-backlog` — shared `getMe()` | — |
 | B17 | ~~Buy now could sell the same item twice (no atomic status check) and never updated seller stats (looked up by string id)~~ **fixed** on `feature/p6-security-hardening` | — |
