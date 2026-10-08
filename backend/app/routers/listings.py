@@ -6,7 +6,7 @@ import math
 
 from app.db import db
 from app.security import get_current_user, get_optional_user
-from app.constants import get_bid_increment
+from app.constants import get_bid_increment, PUBLIC_LISTING_STATUSES
 from app.models import AuctionCreate
 from app.helpers import calculate_positive_percentage
 
@@ -76,6 +76,7 @@ async def create_listing(listing: AuctionCreate, user: dict = Depends(get_curren
     result = await db.listings.insert_one(listing_doc)
     listing_doc["_id"] = str(result.inserted_id)
     listing_doc["seller_id"] = str(listing_doc["seller_id"])
+    listing_doc.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
     
     return listing_doc
 
@@ -97,6 +98,8 @@ async def get_listings(
     page: int = 1,
     limit: int = 24
 ):
+    if status not in PUBLIC_LISTING_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status")
     query = {"status": status}
     
     if q:
@@ -142,6 +145,7 @@ async def get_listings(
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
         doc["seller_id"] = str(doc["seller_id"])
+        doc.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
         listings.append(doc)
     
     total = await db.listings.count_documents(query)
@@ -164,6 +168,7 @@ async def get_featured_listings():
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
         doc["seller_id"] = str(doc["seller_id"])
+        doc.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
         listings.append(doc)
     
     return {"listings": listings}
@@ -184,6 +189,7 @@ async def get_ending_soon():
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
         doc["seller_id"] = str(doc["seller_id"])
+        doc.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
         listings.append(doc)
     
     return {"listings": listings}
@@ -200,11 +206,18 @@ async def get_listing(listing_id: str, request: Request):
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     
+    # Unapproved listings exist only for their seller and admins
+    if listing["status"] not in PUBLIC_LISTING_STATUSES and not (
+        user and (str(listing["seller_id"]) == user["_id"] or user.get("role") == "admin")
+    ):
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
     # Increment view count
     await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"views_count": 1}})
     
     listing["_id"] = str(listing["_id"])
     listing["seller_id"] = str(listing["seller_id"])
+    listing.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
     
     # Get bid history (masked usernames for non-sellers)
     bids_cursor = db.bids.find({"listing_id": listing_id}).sort("created_at", -1).limit(50)
@@ -242,6 +255,7 @@ async def get_listing(listing_id: str, request: Request):
     async for doc in related_cursor:
         doc["_id"] = str(doc["_id"])
         doc["seller_id"] = str(doc["seller_id"])
+        doc.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
         related.append(doc)
     listing["related_items"] = related
     
