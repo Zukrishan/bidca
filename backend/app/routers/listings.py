@@ -119,10 +119,18 @@ async def get_listings(
         query["province"] = province
     if city:
         query["city"] = city
-    if min_price is not None:
-        query["current_bid"] = {"$gte": min_price}
-    if max_price is not None:
-        query["current_bid"] = {**query.get("current_bid", {}), "$lte": max_price}
+    if min_price is not None or max_price is not None:
+        # Fixed-price listings are priced by buy_it_now_price, everything else by current_bid
+        bounds = {}
+        if min_price is not None:
+            bounds["$gte"] = min_price
+        if max_price is not None:
+            bounds["$lte"] = max_price
+        price_clause = {"$or": [
+            {"listing_type": "fixed_price", "buy_it_now_price": bounds},
+            {"listing_type": {"$ne": "fixed_price"}, "current_bid": bounds},
+        ]}
+        query.setdefault("$and", []).append(price_clause)
     if listing_type:
         query["listing_type"] = listing_type
     if seller_id:
