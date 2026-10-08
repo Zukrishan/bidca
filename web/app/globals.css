@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — "BidCa Simple", proposal 1 (docs/design/2026-10-07-stitch-simple/).
+ * NOT yet signed off by the client (Q003). A different direction should be a change to this
+ * block only: components use these semantic names, never raw colours.
+ */
+:root {
+  --background: #fafaf7;
+  --surface: #ffffff;
+  --foreground: #1c1c1a;
+  --muted: #f2f2ee;
+  --muted-foreground: #5f5f5a;
+  --border: #e5e5e0;
+  --primary: #1f5c46;
+  --primary-hover: #184a38;
+  --primary-foreground: #ffffff;
+  --urgent: #c2410c; /* only for time-critical info: < 1h left, ending soon, outbid */
+  --success: #15803d;
+  --destructive: #b91c1c;
+  --ring: #1f5c46;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-urgent: var(--urgent);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
