@@ -5,6 +5,7 @@ search_alerts.py — FR-13: tell users when a newly public listing matches one o
 `active`. It never raises: failures are logged so the admin action that triggered it is unaffected.
 """
 
+import html
 import logging
 from datetime import datetime, timezone
 
@@ -93,12 +94,14 @@ async def _alert(listing: dict) -> int:
             user_id, "saved_search_match", f"New match for “{name}”: {title} — {price_text}", listing_id
         )
         if user.get("email"):
+            # Titles and search names are user input: escape them in the HTML email
+            safe_name, safe_title = html.escape(name), html.escape(title)
             await send_email(
                 to=user["email"],
                 subject=f"New match: {title}",
                 html=(
-                    f"<p>A new listing matches your saved search “{name}”.</p>"
-                    f"<p><strong>{title}</strong> — {price_text}</p>"
+                    f"<p>A new listing matches your saved search “{safe_name}”.</p>"
+                    f"<p><strong>{safe_title}</strong> — {price_text}</p>"
                     f'<p><a href="{link}">{link}</a></p>'
                     "<p>To turn these alerts off, open your saved searches and switch alerts off "
                     "for this search, or delete it.</p>"
