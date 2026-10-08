@@ -190,6 +190,12 @@ Runs every 30s in the API process (idempotent):
 - On close: creates the transaction (`pending_payment`) for sold items, notifies winner and seller, emails both, emits `auction_ended`.
 
 ## Changelog
+- **v1.2 (8 Oct 2026)** — security fixes (`feature/p6-security-hardening`):
+  - Any `user`/`admin` endpoint and `/auth/refresh`: **403** `Account has been banned` / `…suspended` for blocked accounts (was: access until token expiry). `/auth/login` answers 401 for a wrong password before revealing a ban.
+  - Socket.IO: the connection is identified by the `access_token` cookie (browsers must send credentials). `join_user_notifications` joins **only the caller's own** `user_{id}` room — the payload's `user_id` is ignored — and acks `{ok, error?}`; visitors get `{ok:false}`. Allowed origin = `FRONTEND_URL` (was `*`).
+  - `auction_ended` has one shape everywhere: `{listing_id, status, sold_price?, winner_id?, sold_via?}`; buy-now/offer events keep the v1 `price` key.
+  - `POST /listings/{id}/buy-now` → 400 when the listing already ended (no double sale). `PUT /offers/{id}/respond` → 400 if the offer isn't pending, 404 if the listing is gone, 409 if it ended; accepting creates a `best_offer` transaction and declines the other pending offers.
+  - Cookies are `Secure` when `ENV=production` (`COOKIE_SECURE` overrides).
 - **v1.1 (8 Oct 2026)** — additive / bug-fix only:
   - `GET /listings` accepts optional `seller_id` (the CRA profile page already sent it).
   - `q` (listings) and `search` (admin users) are plain text, escaped before matching — no regex semantics.
