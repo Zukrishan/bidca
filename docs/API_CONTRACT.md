@@ -190,6 +190,10 @@ Runs every 30s in the API process (idempotent):
 - On close: creates the transaction (`pending_payment`) for sold items, notifies winner and seller, emails both, emits `auction_ended`.
 
 ## Changelog
+- **v1.1 (8 Oct 2026)** — additive / bug-fix only:
+  - `GET /listings` accepts optional `seller_id` (the CRA profile page already sent it).
+  - `q` (listings) and `search` (admin users) are plain text, escaped before matching — no regex semantics.
+  - Socket.IO `notification` payload `_id` is a string (it previously failed to serialise).
 - **v1 (8 Oct 2026)** — contract frozen.
   - D9: `highest_bidder_max_bid` removed from all non-admin listing responses (it leaked the leading proxy max).
   - D8 visibility fix: `GET /listings` rejects non-public `status` (400); `GET /listings/{id}` returns 404 for `pending`/`rejected` unless seller or admin.
