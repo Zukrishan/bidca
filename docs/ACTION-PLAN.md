@@ -17,9 +17,26 @@ Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features ex
 | A1 | `git rm --cached cookies.txt`, add to `.gitignore`, rotate `JWT_SECRET` if it was real | integrator | **done** 43a725d; file still in git history, so rotating `JWT_SECRET` is the user's call |
 | A2 | Phase 1 (R1–R8) | integrator → user | **built, 11/11 tests green** on `feature/p0-backend`; awaiting user manual test and PR review (no separate human review yet) |
 | A3 | Client answers Q001–Q006 | user | open |
-| A4 | Freeze API_CONTRACT v1 | integrator | after Phase 2 |
+| A4 | Freeze API_CONTRACT v1 | integrator | **done** 8 Oct (docs/contract-v1), with D8/D9 fixes on `feature/p4-nextjs-public` |
 | A5 | Merge docs PR, then Phase 1 PR | user | open |
 | A6 | Frontend filters on `ended` (AdminPanel, SellerDashboard) but closed auctions are `sold`/`unsold` — tabs show nothing | Phase 4 | open |
 | A7 | Phase 2 router split (`feature/p2-router-split`, PR #6, stacked on #5) | integrator → user | **built**; route table + OpenAPI identical, live API results identical, test_p0 11/11 |
 | A8 | Phase 3 design proposal 1 (`docs/design/2026-10-07-stitch-simple/`) | client | awaiting sign-off (Q003); OpenDesign alternative pending (MCP not connecting) |
 | A9 | Phase 4 Next.js port of public routes | integrator | blocked on A4 (after #6 merges) + A8 sign-off |
+
+## Backend backlog (found during the v1 contract freeze, 8 Oct 2026)
+Not fixed yet; each needs its own PR with a test. Contract changes need a D-number.
+
+| # | Issue | Priority |
+|---|---|---|
+| B1 | Socket.IO rooms need no auth — anyone can `join_user_notifications` for any user id and receive their notifications | **high** (security) |
+| B2 | `notification` socket emit fails: `create_notification` emits the dict after `insert_one` added a BSON `_id` (not JSON-serialisable); closer notifications are never emitted | high |
+| B3 | Banned/suspended users keep access until token expiry (`get_current_user`, `/auth/refresh` don't check) | high (security) |
+| B4 | Best-offer accept marks the listing sold but creates no transaction/stats and emits nothing; doesn't check offer still pending / listing active | medium |
+| B5 | `auction_ended` has two payload shapes (buy-now vs closer) | medium |
+| B6 | Several routes 500 on a malformed id (`ObjectId()` outside try): watch, report, saved-search delete, notification read, admin PUT/DELETE; watch doesn't check the listing exists | medium |
+| B7 | Bidding: no anti-snipe end-time extension; odd `highest_bidder_name` when a new bid loses to an existing proxy; best-offer doesn't check listing active; sniper max not validated against min bid | medium |
+| B8 | `PUT /admin/listings/{id}` returns 404 when the status is unchanged (`modified_count == 0`) | low |
+| B9 | Auth responses differ in shape (register / login / me) | low |
+| B10 | Cookies `secure=False` — must be `True` behind HTTPS in production (Phase 5) | high before deploy |
+| B11 | CORS falls back to `http://localhost:3000` when `FRONTEND_URL` unset (should be :3100) | low |
