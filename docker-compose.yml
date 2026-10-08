@@ -1,0 +1,62 @@
+# BidCa containers (host-agnostic). Copy .env.example to .env first.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on: [mongo]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: ${DB_NAME:-bidca}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL in .env}
+      ENV: ${ENV:-production}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    ports:
+      - "${API_PORT:-8100}:8100"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8100/api/health', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  cra:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_BACKEND_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8100}
+    restart: unless-stopped
+    expose: ["80"]
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8100}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3100}
+        CRA_ORIGIN: http://cra
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      cra:
+        condition: service_started
+    environment:
+      API_URL: http://api:8100
+    ports:
+      - "${WEB_PORT:-3100}:3100"
+
+volumes:
+  mongo_data:
