@@ -19,7 +19,7 @@ export function SaveSearchButton({ name, query, category, minPrice, maxPrice }) 
       if (minPrice !== undefined && minPrice !== "") body.min_price = Number(minPrice);
       if (maxPrice !== undefined && maxPrice !== "") body.max_price = Number(maxPrice);
       await clientApi("/saved-searches", { method: "POST", body });
-      setState({ busy: false, message: "Search saved.", error: false });
+      setState({ busy: false, message: "Saved — we'll notify you about new matches.", error: false });
     } catch (err) {
       if (err.status === 401) {
         router.push("/login");
