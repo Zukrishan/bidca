@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { clientApi } from "@/lib/client-api";
 
 /** POST /saved-searches with the current filters. Sends signed-out users to /login. */
-export function SaveSearchButton({ name, query, category, minPrice, maxPrice }) {
+export function SaveSearchButton({ name, query, category, city, listingType, minPrice, maxPrice }) {
   const router = useRouter();
   const [state, setState] = useState({ busy: false, message: "", error: false });
 
@@ -16,6 +16,8 @@ export function SaveSearchButton({ name, query, category, minPrice, maxPrice }) 
     try {
       const body = { name, query: query || "" };
       if (category) body.category = category;
+      if (city) body.city = city;
+      if (listingType) body.listing_type = listingType;
       if (minPrice !== undefined && minPrice !== "") body.min_price = Number(minPrice);
       if (maxPrice !== undefined && maxPrice !== "") body.max_price = Number(maxPrice);
       await clientApi("/saved-searches", { method: "POST", body });

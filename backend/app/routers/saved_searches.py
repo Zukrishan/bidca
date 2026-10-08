@@ -17,6 +17,8 @@ async def create_saved_search(search: SavedSearchCreate, user: dict = Depends(ge
         "name": search.name,
         "query": search.query,
         "category": search.category,
+        "city": search.city,
+        "listing_type": search.listing_type,
         "min_price": search.min_price,
         "max_price": search.max_price,
         "notify": True,

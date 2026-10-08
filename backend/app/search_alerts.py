@@ -39,6 +39,10 @@ def search_matches(search: dict, listing: dict, price) -> bool:
             return False
     if search.get("category") and search["category"] != listing.get("category"):
         return False
+    if search.get("city") and search["city"] != listing.get("city"):
+        return False
+    if search.get("listing_type") and search["listing_type"] != listing.get("listing_type"):
+        return False
     lo, hi = search.get("min_price"), search.get("max_price")
     if lo is not None or hi is not None:
         if price is None:

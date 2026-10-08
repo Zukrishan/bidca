@@ -20,7 +20,13 @@ async def submit_best_offer(listing_id: str, offer: BestOfferCreate, user: dict 
     except:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    if not listing or not listing.get("accepts_best_offer"):
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    if listing["status"] != "active":
+        raise HTTPException(status_code=400, detail="This listing is not active")
+    
+    if not listing.get("accepts_best_offer"):
         raise HTTPException(status_code=400, detail="This listing does not accept offers")
     
     if str(listing["seller_id"]) == user["_id"]:

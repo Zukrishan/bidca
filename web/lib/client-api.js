@@ -16,3 +16,11 @@ export async function clientApi(path, { method = "GET", body } = {}) {
   }
   return data;
 }
+
+let mePromise;
+
+/** GET /auth/me once per page load; every caller shares the same promise (resolves the user, rejects when signed out). */
+export function getMe() {
+  if (!mePromise) mePromise = clientApi("/auth/me");
+  return mePromise;
+}
