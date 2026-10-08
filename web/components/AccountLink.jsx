@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { clientApi } from "@/lib/client-api";
+import { clientApi, getMe } from "@/lib/client-api";
 
 /** "Sign in" for visitors, the user's first name (→ CRA dashboard) once the auth cookie is valid. */
 export function AccountLink() {
@@ -10,7 +10,7 @@ export function AccountLink() {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
-    clientApi("/auth/me").then(setUser, () => setUser(null));
+    getMe().then(setUser, () => setUser(null));
     clientApi("/messages/unread-count").then((d) => setUnread(d.unread || 0), () => {});
   }, []);
 

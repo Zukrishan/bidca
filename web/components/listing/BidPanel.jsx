@@ -9,7 +9,7 @@ import { Countdown } from "@/components/Countdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PUBLIC_API_URL } from "@/lib/config";
-import { clientApi } from "@/lib/client-api";
+import { clientApi, getMe } from "@/lib/client-api";
 import { formatCAD, isAuction, isUrgent, headlinePrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +58,7 @@ export function BidPanel({ listing }) {
 
   const loadMine = useCallback(async () => {
     try {
-      const me = await clientApi("/auth/me");
+      const me = await getMe();
       setUser(me);
       // Derived without re-fetching the listing, which would count a second view.
       const { watchlist = [] } = await clientApi("/users/me/watchlist");

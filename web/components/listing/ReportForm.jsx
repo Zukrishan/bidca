@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { clientApi } from "@/lib/client-api";
+import { clientApi, getMe } from "@/lib/client-api";
 
 const REASONS = ["Spam or scam", "Prohibited item", "Wrong category", "Misleading description", "Other"];
 
@@ -17,7 +17,7 @@ export function ReportForm({ listingId }) {
   const [status, setStatus] = useState(null);
 
   useEffect(() => {
-    clientApi("/auth/me").then(setUser, () => setUser(null));
+    getMe().then(setUser, () => setUser(null));
   }, []);
 
   if (user === undefined) return null;

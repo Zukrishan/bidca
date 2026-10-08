@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 
 import { Button } from "@/components/ui/button";
 import { PUBLIC_API_URL } from "@/lib/config";
-import { clientApi } from "@/lib/client-api";
+import { clientApi, getMe } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 
 const MAX = 2000;
@@ -47,7 +47,7 @@ export function Thread({ transactionId }) {
   }, [transactionId]);
 
   useEffect(() => {
-    clientApi("/auth/me").then(setMe, () => setMe(null));
+    getMe().then(setMe, () => setMe(null));
     load();
     const poll = setInterval(load, POLL_MS);
 

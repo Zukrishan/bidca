@@ -224,6 +224,8 @@ export default async function AuctionsPage({ searchParams }) {
             name={heading.slice(0, 80)}
             query={p.q}
             category={p.category}
+            city={p.city}
+            listingType={p.listing_type}
             minPrice={p.min_price}
             maxPrice={p.max_price}
           />
