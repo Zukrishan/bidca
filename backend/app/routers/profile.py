@@ -19,7 +19,8 @@ async def get_user_profile(user_id: str):
         raise HTTPException(status_code=404, detail="User not found")
     
     # Get active listings
-    active_listings = await db.listings.count_documents({"seller_id": user["_id"], "status": "active"})
+    # listings store seller_id as the stringified user id
+    active_listings = await db.listings.count_documents({"seller_id": str(user["_id"]), "status": "active"})
     
     return {
         "id": str(user["_id"]),

@@ -59,3 +59,6 @@ def get_bid_increment(current_price: float) -> float:
         return 250
     else:
         return 500
+
+# Listing statuses anyone may see; pending/rejected are seller- and admin-only (contract D8)
+PUBLIC_LISTING_STATUSES = {"active", "ended", "sold", "unsold"}

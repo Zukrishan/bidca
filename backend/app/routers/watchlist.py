@@ -38,6 +38,7 @@ async def get_watchlist(user: dict = Depends(get_current_user)):
         if listing:
             listing["_id"] = str(listing["_id"])
             listing["seller_id"] = str(listing["seller_id"])
+            listing.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
             items.append(listing)
     
     return {"watchlist": items}

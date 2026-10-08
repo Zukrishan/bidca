@@ -1,0 +1,9 @@
+tests
+scripts
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+.pytest_cache
+requirements.txt
