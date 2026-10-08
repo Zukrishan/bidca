@@ -9,3 +9,5 @@
 | 28 Sep 2026 | maw split | acc1 builder, acc2 reviewer, Claude integrates |
 | 28 Sep 2026 | Creds / branch | No creds — env-driven mocks; feature branch off main, PR |
 | 28 Sep 2026 | maw runs | Launching `agy --dangerously-skip-permissions` under acc1/acc2 was blocked by the Claude Code permission classifier; needs explicit user allow |
+| 8 Oct 2026 | Continue past Phase 3 gate? | User: "continue and complete the phases, I will check in the end" — Phase 4 started before client design sign-off (Q003); design tokens isolated so a different direction is a token swap |
+| 8 Oct 2026 | Contract v1 | Frozen with two security fixes as decisions D8 (unapproved listings not public) and D9 (proxy max never exposed) |
