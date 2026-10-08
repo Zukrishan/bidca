@@ -16,7 +16,7 @@ from app.security import get_current_user, get_optional_user, require_admin  # n
 from app.realtime import sio
 from app.seed import _seed_admin
 from app.routers import (
-    health, auth, password_reset, uploads, catalog, listings, bidding, sniper, buy_now, offers,
+    health, auth, email_verification, password_reset, uploads, catalog, listings, bidding, sniper, buy_now, offers,
     watchlist, saved_searches, feedback, dashboard, seller_stats, relist, notifications,
     verification, reports, admin, profile,
 )
@@ -57,7 +57,7 @@ async def shutdown():
 
 # Include routers (order matches the original route table), all under /api
 for _r in (
-    health, auth, password_reset, uploads, catalog, listings, bidding, sniper,
+    health, auth, email_verification, password_reset, uploads, catalog, listings, bidding, sniper,
     buy_now, offers, watchlist, saved_searches, feedback, dashboard, seller_stats,
     relist, notifications, verification, reports, admin, profile,
 ):

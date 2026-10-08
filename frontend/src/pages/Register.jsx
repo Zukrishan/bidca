@@ -80,6 +80,7 @@ export default function Register() {
         postal_code: formData.postal_code
       });
       toast.success("Account created successfully!");
+      toast.info("Check your email to confirm your address");
       navigate("/dashboard");
     } catch (err) {
       setError(formatApiErrorDetail(err.response?.data?.detail) || err.message);

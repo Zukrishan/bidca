@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from bson import ObjectId
 
 from app.db import db
-from app.security import get_current_user
+from app.security import get_current_user, require_verified_email
 from app.sales import complete_sale
 
 router = APIRouter()
@@ -10,7 +10,7 @@ router = APIRouter()
 
 # Buy It Now
 @router.post("/listings/{listing_id}/buy-now")
-async def buy_it_now(listing_id: str, user: dict = Depends(get_current_user)):
+async def buy_it_now(listing_id: str, user: dict = Depends(require_verified_email)):
     try:
         listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     except:

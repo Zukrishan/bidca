@@ -30,6 +30,7 @@ async def _seed_admin():
                 "postal_code": "V6B1A1",
                 "province": "British Columbia",
                 "role": "admin",
+                "email_verified": True,
                 "verification_status": "verified",
                 "verification_badge": True,
                 "is_suspended": False,
@@ -47,6 +48,8 @@ async def _seed_admin():
                 "created_at": datetime.now(timezone.utc).isoformat()
             })
             logger.info("Admin user seeded")
-        elif not verify_password(admin_password, existing["password_hash"]):
+        elif not existing.get("email_verified"):
+            await db.users.update_one({"email": admin_email}, {"$set": {"email_verified": True}})
+        if existing is not None and not verify_password(admin_password, existing["password_hash"]):
             await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
             logger.info("Admin password updated")

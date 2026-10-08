@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.db import db
-from app.security import get_current_user
+from app.security import get_current_user, require_verified_email
 from app.models import BestOfferCreate
 from app.helpers import create_notification
 from app.sales import complete_sale
@@ -14,7 +14,7 @@ router = APIRouter()
 
 # Best Offer
 @router.post("/listings/{listing_id}/best-offer")
-async def submit_best_offer(listing_id: str, offer: BestOfferCreate, user: dict = Depends(get_current_user)):
+async def submit_best_offer(listing_id: str, offer: BestOfferCreate, user: dict = Depends(require_verified_email)):
     try:
         listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     except:

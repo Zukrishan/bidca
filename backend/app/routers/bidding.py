@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.db import db
-from app.security import get_current_user
+from app.security import get_current_user, require_verified_email
 from app.constants import get_bid_increment
 from app.models import BidCreate
 from app.helpers import create_notification
@@ -14,7 +14,7 @@ router = APIRouter()
 
 # Proxy Bidding System
 @router.post("/listings/{listing_id}/bid")
-async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(get_current_user), background_tasks: BackgroundTasks = None):
+async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(require_verified_email), background_tasks: BackgroundTasks = None):
     try:
         listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     except:

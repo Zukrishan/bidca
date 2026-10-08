@@ -6,7 +6,7 @@ from bson import ObjectId
 import math
 
 from app.db import db
-from app.security import get_current_user, get_optional_user
+from app.security import get_current_user, get_optional_user, require_verified_email
 from app.constants import get_bid_increment, PUBLIC_LISTING_STATUSES
 from app.models import AuctionCreate
 from app.helpers import calculate_positive_percentage
@@ -16,7 +16,7 @@ router = APIRouter()
 
 # Listings/Auctions
 @router.post("/listings", status_code=201)
-async def create_listing(listing: AuctionCreate, user: dict = Depends(get_current_user)):
+async def create_listing(listing: AuctionCreate, user: dict = Depends(require_verified_email)):
     # Validate reserve price
     if listing.reserve_price and listing.reserve_price < listing.starting_bid:
         raise HTTPException(status_code=400, detail="Reserve price must be higher than starting bid")

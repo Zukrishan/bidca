@@ -66,6 +66,12 @@ def main():
         session_for("raj@demo.bidca.ca", PASSWORD, {"full_name": "Raj Patel", "city": "Surrey", "postal_code": "V3T 1A1"}),
     ]
 
+    # Registration now requires email confirmation before bidding/selling; skip it for demo users.
+    if os.environ.get("MONGO_URL"):
+        from pymongo import MongoClient
+        MongoClient(os.environ["MONGO_URL"])[os.environ.get("DB_NAME", "bidca")].users.update_many(
+            {"email": {"$regex": "@demo\\.bidca\\.ca$"}}, {"$set": {"email_verified": True}})
+
     created = []
     for title, cat, sub, city, ltype, start, bin_price, cond, slug in LISTINGS:
         body = {

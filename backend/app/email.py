@@ -30,6 +30,9 @@ async def send_email(to: str, subject: str, html: str) -> None:
             to,
             subject,
         )
+        # Dev convenience: let developers click verification/reset links. Never in production.
+        if os.getenv("ENV", "").lower() != "production":
+            logger.info("send_email (mock) body: %s", html)
         return
 
     try:
