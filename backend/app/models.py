@@ -50,6 +50,8 @@ class SavedSearchCreate(BaseModel):
     name: str
     query: str
     category: Optional[str] = None
+    city: Optional[str] = None
+    listing_type: Optional[Literal["auction", "fixed_price", "auction_bin"]] = None
     min_price: Optional[float] = None
     max_price: Optional[float] = None
 
