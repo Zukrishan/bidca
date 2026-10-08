@@ -45,7 +45,7 @@ async def _user(email, **extra):
     doc = {
         "email": email, "full_name": email.split("@")[0].title(), "city": "Victoria", "role": "user",
         "password_hash": bcrypt.hashpw(PASSWORD.encode(), bcrypt.gensalt()).decode(),
-        "verification_status": "unverified", "total_sales": 0, "total_sales_amount": 0,
+        "verification_status": "unverified", "email_verified": True, "total_sales": 0, "total_sales_amount": 0,
         "total_purchases": 0, "created_at": datetime.now(timezone.utc).isoformat(), **extra,
     }
     res = await db.users.insert_one(doc)

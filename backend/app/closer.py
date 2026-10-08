@@ -8,6 +8,7 @@ Exposes:
 """
 
 import asyncio
+import html
 import logging
 from datetime import datetime, timezone
 
@@ -311,13 +312,13 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
                 await send_email(
                     to=winner_user["email"],
                     subject=f"You won: {title}",
-                    html=f"<p>{winner_msg}</p>",
+                    html=f"<p>{html.escape(winner_msg)}</p>",  # titles are user input
                 )
             if seller_user:
                 await send_email(
                     to=seller_user["email"],
                     subject=f"Auction sold: {title}",
-                    html=f"<p>{seller_msg}</p>",
+                    html=f"<p>{html.escape(seller_msg)}</p>",  # titles are user input
                 )
         except Exception as exc:
             logger.error("Email send failed for listing %s: %s", listing_id, exc)
@@ -360,7 +361,7 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
                 await send_email(
                     to=seller_user["email"],
                     subject=f"Auction ended unsold: {title}",
-                    html=f"<p>{seller_msg}</p>",
+                    html=f"<p>{html.escape(seller_msg)}</p>",  # titles are user input
                 )
         except Exception as exc:
             logger.error("Email send failed for listing %s: %s", listing_id, exc)

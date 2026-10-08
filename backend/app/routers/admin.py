@@ -1,5 +1,5 @@
 import re
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from typing import Optional, Literal
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -8,6 +8,7 @@ from app.db import db
 from app.security import require_admin
 from app.models import ListingUpdate, UserUpdate
 from app.helpers import calculate_positive_percentage, create_notification
+from app.search_alerts import alert_saved_searches
 
 router = APIRouter()
 
@@ -67,11 +68,12 @@ async def admin_get_listings(
     return {"listings": listings, "total": total, "page": page}
 
 @router.put("/admin/listings/{listing_id}")
-async def admin_update_listing(listing_id: str, update: ListingUpdate, admin: dict = Depends(require_admin)):
+async def admin_update_listing(listing_id: str, update: ListingUpdate, background_tasks: BackgroundTasks, admin: dict = Depends(require_admin)):
     update_dict = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_dict:
         raise HTTPException(status_code=400, detail="No updates provided")
     
+    before = await db.listings.find_one({"_id": ObjectId(listing_id)}, {"status": 1})
     result = await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$set": update_dict})
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -84,6 +86,9 @@ async def admin_update_listing(listing_id: str, update: ListingUpdate, admin: di
             f"Your listing '{listing['title']}' has been {update.status}",
             listing_id
         )
+        # FR-13: the listing just became publicly active, so tell matching saved searches
+        if update.status == "active" and before and before.get("status") != "active":
+            background_tasks.add_task(alert_saved_searches, listing)
     
     return {"message": f"Listing updated"}
 

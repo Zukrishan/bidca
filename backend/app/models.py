@@ -53,6 +53,9 @@ class SavedSearchCreate(BaseModel):
     min_price: Optional[float] = None
     max_price: Optional[float] = None
 
+class SavedSearchUpdate(BaseModel):
+    alerts_enabled: bool
+
 class ListingUpdate(BaseModel):
     status: Optional[Literal["pending", "approved", "rejected", "active", "ended", "sold", "unsold"]] = None
 
@@ -75,3 +78,7 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str

@@ -146,6 +146,19 @@ export function BidPanel({ listing }) {
     });
   }
 
+  async function resendVerification() {
+    setBusy("resend");
+    setNotice(null);
+    try {
+      const r = await clientApi("/auth/resend-verification", { method: "POST" });
+      setNotice({ kind: "ok", text: r.message || "Verification email sent" });
+    } catch (err) {
+      setNotice({ kind: "error", text: err.message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function toggleWatch() {
     setBusy("watch");
     setNotice(null);
@@ -171,6 +184,12 @@ export function BidPanel({ listing }) {
 
   const price = headlinePrice(listing);
   const urgent = auction && listing.end_time && isUrgent(listing.end_time);
+
+  const watchButton = (
+    <Button variant="outline" onClick={toggleWatch} disabled={busy === "watch"} aria-pressed={mine.is_watching}>
+      <Eye aria-hidden /> {mine.is_watching ? "Watching" : "Watch this listing"}
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-4 pb-24 lg:pb-0">
@@ -207,6 +226,19 @@ export function BidPanel({ listing }) {
         </div>
       ) : mine.is_seller ? (
         <p className="rounded-lg border border-border p-3 text-sm">This is your listing.</p>
+      ) : !user.email_verified ? (
+        <>
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+          <p className="text-sm font-medium">Confirm your email to bid</p>
+          <p className="text-xs text-muted-foreground">We sent a link to {user.email}. Open it, then come back.</p>
+          <Button variant="outline" onClick={resendVerification} disabled={busy === "resend"}>
+            {busy === "resend" ? "Sending…" : "Resend email"}
+          </Button>
+          {noticeEl}
+        </div>
+        {/* Watching doesn't need a verified email; bidding, buying and offers do */}
+        {watchButton}
+        </>
       ) : (
         <>
           {auction && (
@@ -292,9 +324,7 @@ export function BidPanel({ listing }) {
               </button>
             ))}
 
-          <Button variant="outline" onClick={toggleWatch} disabled={busy === "watch"} aria-pressed={mine.is_watching}>
-            <Eye aria-hidden /> {mine.is_watching ? "Watching" : "Watch this listing"}
-          </Button>
+          {watchButton}
         </>
       )}
     </div>

@@ -3,14 +3,14 @@ from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 
 from app.db import db
-from app.security import get_current_user
+from app.security import get_current_user, require_verified_email
 
 router = APIRouter()
 
 
 # Relist Item
 @router.post("/listings/{listing_id}/relist")
-async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depends(get_current_user)):
+async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depends(require_verified_email)):
     try:
         listing = await db.listings.find_one({"_id": ObjectId(listing_id)})
     except:

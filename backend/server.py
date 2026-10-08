@@ -16,9 +16,9 @@ from app.security import get_current_user, get_optional_user, require_admin  # n
 from app.realtime import sio
 from app.seed import _seed_admin
 from app.routers import (
-    health, auth, password_reset, uploads, catalog, listings, bidding, sniper, buy_now, offers,
+    health, auth, email_verification, password_reset, uploads, catalog, listings, bidding, sniper, buy_now, offers,
     watchlist, saved_searches, feedback, dashboard, seller_stats, relist, notifications,
-    verification, reports, admin, profile,
+    verification, reports, admin, profile, messages,
 )
 
 fastapi_app = FastAPI(title="BidCa.ca API - Full Auction Platform")
@@ -40,6 +40,8 @@ async def startup():
     await db.transactions.create_index([("buyer_id", 1)])
     await db.transactions.create_index([("seller_id", 1)])
     await db.login_attempts.create_index("identifier")
+    await db.messages.create_index([("transaction_id", 1), ("created_at", 1)])
+    await db.messages.create_index([("recipient_id", 1), ("read_at", 1)])
     
     await _seed_admin()
 
@@ -57,9 +59,9 @@ async def shutdown():
 
 # Include routers (order matches the original route table), all under /api
 for _r in (
-    health, auth, password_reset, uploads, catalog, listings, bidding, sniper,
+    health, auth, email_verification, password_reset, uploads, catalog, listings, bidding, sniper,
     buy_now, offers, watchlist, saved_searches, feedback, dashboard, seller_stats,
-    relist, notifications, verification, reports, admin, profile,
+    relist, notifications, verification, reports, admin, profile, messages,
 ):
     fastapi_app.include_router(_r.router, prefix="/api")
 
