@@ -7,9 +7,13 @@ import math
 
 from app.db import db
 from app.security import get_current_user, get_optional_user, require_verified_email
-from app.constants import get_bid_increment, PUBLIC_LISTING_STATUSES
+from app.constants import PUBLIC_LISTING_STATUSES
 from app.models import AuctionCreate
 from app.helpers import calculate_positive_percentage
+from app.listing_rules import (
+    can_view_listing, check_complete, check_listing_cap, listing_content, new_invite_token,
+    record_submission, resolve_invitees, seller_fields, strip_private_fields, timing_fields,
+)
 
 router = APIRouter()
 
@@ -17,66 +21,49 @@ router = APIRouter()
 # Listings/Auctions
 @router.post("/listings", status_code=201)
 async def create_listing(listing: AuctionCreate, user: dict = Depends(require_verified_email)):
-    # Validate reserve price
-    if listing.reserve_price and listing.reserve_price < listing.starting_bid:
-        raise HTTPException(status_code=400, detail="Reserve price must be higher than starting bid")
-    
-    # Validate BIN price
-    if listing.buy_it_now_price and listing.buy_it_now_price <= listing.starting_bid:
-        raise HTTPException(status_code=400, detail="Buy It Now price must be higher than starting bid")
-    
-    end_time = datetime.now(timezone.utc) + timedelta(days=listing.duration_days)
-    
+    data = listing.model_dump()
+    content = listing_content(data)
+    if not listing.draft:
+        check_complete(content)
+        await check_listing_cap(user["_id"])
+    private = content["listing_type"] == "private"
+    invitees = await resolve_invitees(listing.invitees, user["_id"]) if private else []
+
+    now = datetime.now(timezone.utc)
     listing_doc = {
-        "title": listing.title,
-        "category": listing.category,
-        "subcategory": listing.subcategory,
-        "description": listing.description,
-        "city": listing.city,
-        "province": listing.province,
-        "images": listing.images,
-        "condition": listing.condition,
-        "listing_type": listing.listing_type,
-        # Pricing
-        "starting_bid": listing.starting_bid,
-        "current_bid": listing.starting_bid,
-        "reserve_price": listing.reserve_price,
-        "reserve_met": False if listing.reserve_price else True,
-        "buy_it_now_price": listing.buy_it_now_price,
-        # No negotiating once an auction is open (FR-28): offers are for fixed-price listings only
-        "accepts_best_offer": listing.accepts_best_offer and listing.listing_type == "fixed_price",
-        # Timing
-        "duration_days": listing.duration_days,
-        "start_time": datetime.now(timezone.utc).isoformat(),
-        "end_time": end_time.isoformat(),
-        # Seller info
-        "seller_id": user["_id"],
-        "seller_name": user["full_name"],
-        "seller_city": user["city"],
-        "seller_verified": user.get("verification_badge", False),
-        "seller_rating": user.get("seller_rating", 0),
-        "seller_total_ratings": user.get("total_ratings", 0),
-        "seller_positive_pct": calculate_positive_percentage(user),
+        **content,
+        # Timing: a draft gets its times when it is submitted
+        "start_time": None,
+        "end_time": None,
+        **({} if listing.draft else timing_fields(content["duration_days"], now)),
+        **seller_fields(user),
         # Bidding
         "bid_count": 0,
-        "bid_increment": get_bid_increment(listing.starting_bid),
         "highest_bidder_id": None,
         "highest_bidder_name": None,
         "highest_bidder_max_bid": None,  # For proxy bidding
-        # Status
-        "status": "pending",
+        # Status: drafts are seller-only; everything else waits for admin approval
+        "status": "draft" if listing.draft else "pending",
         "winner_id": None,
         "sold_price": None,
         "watchers_count": 0,
         "views_count": 0,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": now.isoformat()
     }
-    
+    if private:
+        listing_doc["invitees"] = invitees
+        listing_doc["invite_token"] = new_invite_token()
+        listing_doc.setdefault("invite_expires_at", None)
+    else:
+        listing_doc.pop("invite_expires_at", None)
+
     result = await db.listings.insert_one(listing_doc)
     listing_doc["_id"] = str(result.inserted_id)
     listing_doc["seller_id"] = str(listing_doc["seller_id"])
     listing_doc.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
-    
+    if not listing.draft:
+        await record_submission(user["_id"], listing_doc["_id"])
+
     return listing_doc
 
 @router.get("/listings")
@@ -128,8 +115,10 @@ async def get_listings(
             {"listing_type": {"$ne": "fixed_price"}, "current_bid": bounds},
         ]}
         query.setdefault("$and", []).append(price_clause)
+    # Private listings are invite-only and never listed (FR-31)
+    query["listing_type"] = {"$ne": "private"}
     if listing_type:
-        query["listing_type"] = listing_type
+        query["listing_type"]["$eq"] = listing_type
     if seller_id:
         query["seller_id"] = seller_id
     if seller_rating:
@@ -137,7 +126,8 @@ async def get_listings(
 
     # Sorting
     sort_options = {
-        "ending_soonest": [("end_time", 1)],
+        # Fixed-price items (never any bids) go after the auctions (FR-07, lowest priority)
+        "ending_soonest": [("fixed_price_last", 1), ("end_time", 1)],
         "newly_listed": [("created_at", -1)],
         "lowest_price": [("current_bid", 1)],
         "highest_price": [("current_bid", -1)],
@@ -218,6 +208,9 @@ async def get_listing(listing_id: str, request: Request):
         user and (str(listing["seller_id"]) == user["_id"] or user.get("role") == "admin")
     ):
         raise HTTPException(status_code=404, detail="Listing not found")
+    # Private listings exist only for their seller, invitees and admins (FR-31)
+    if not can_view_listing(listing, user):
+        raise HTTPException(status_code=404, detail="Listing not found")
     
     # Increment view count
     await db.listings.update_one({"_id": ObjectId(listing_id)}, {"$inc": {"views_count": 1}})
@@ -225,6 +218,7 @@ async def get_listing(listing_id: str, request: Request):
     listing["_id"] = str(listing["_id"])
     listing["seller_id"] = str(listing["seller_id"])
     listing.pop("highest_bidder_max_bid", None)  # proxy max is secret (contract D9)
+    strip_private_fields(listing, user)
     
     # Get bid history (masked usernames for non-sellers)
     bids_cursor = db.bids.find({"listing_id": listing_id}).sort("created_at", -1).limit(50)
@@ -256,7 +250,8 @@ async def get_listing(listing_id: str, request: Request):
     
     # Get related items
     related_cursor = db.listings.find(
-        {"category": listing["category"], "status": "active", "_id": {"$ne": ObjectId(listing_id)}}
+        {"category": listing["category"], "status": "active", "listing_type": {"$ne": "private"},
+         "_id": {"$ne": ObjectId(listing_id)}}
     ).limit(6)
     related = []
     async for doc in related_cursor:

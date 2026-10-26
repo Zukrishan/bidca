@@ -60,5 +60,18 @@ def get_bid_increment(current_price: float) -> float:
     else:
         return 500
 
-# Listing statuses anyone may see; pending/rejected are seller- and admin-only (contract D8)
+# Listing statuses anyone may see; pending/rejected are seller- and admin-only (contract D8).
+# draft and cancelled (Phase 9e) are never public either.
 PUBLIC_LISTING_STATUSES = {"active", "ended", "sold", "unsold"}
+
+# Listing types that run as auctions; "private" is an invite-only auction (FR-31)
+AUCTION_LISTING_TYPES = ["auction", "auction_bin", "private"]
+
+# Extra fields some categories ask for (FR-05): name → type. Stored as listing["category_fields"].
+CATEGORY_FIELDS = {
+    "Vehicles": {"year": int, "make": str, "model": str, "mileage": int},
+    "Electronics": {"brand": str, "model": str},
+}
+
+# The category whose listings need the seller's vehicle disclosure and show the checklist (FR-30)
+VEHICLES_CATEGORY = "Vehicles"

@@ -224,7 +224,7 @@ async def _close_due_auctions(db, sio=None) -> None:
     while True:
         listing = await db.listings.find_one_and_update(
             {
-                "listing_type": {"$in": ["auction", "auction_bin"]},
+                "listing_type": {"$in": ["auction", "auction_bin", "private"]},
                 "status": "active",
                 "end_time": {"$lte": now_iso},
             },

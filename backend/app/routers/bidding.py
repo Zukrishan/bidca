@@ -8,6 +8,7 @@ from app.constants import get_bid_increment
 from app.models import BidCreate
 from app.helpers import create_notification, notify_outbid
 from app.realtime import broadcast_bid_update
+from app.listing_rules import can_view_listing
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
     except:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    if not listing:
+    if not listing or not can_view_listing(listing, user):  # private: invitees only (FR-31)
         raise HTTPException(status_code=404, detail="Listing not found")
     
     if listing["status"] != "active":

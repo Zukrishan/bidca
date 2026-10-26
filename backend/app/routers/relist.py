@@ -4,6 +4,7 @@ from bson import ObjectId
 
 from app.db import db
 from app.security import get_current_user, require_verified_email
+from app.listing_rules import check_listing_cap, record_submission
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depe
     
     if listing["status"] not in ["ended", "unsold"]:
         raise HTTPException(status_code=400, detail="Can only relist ended or unsold items")
+    await check_listing_cap(user["_id"])  # a relist counts toward the monthly cap (FR-34)
     
     end_time = datetime.now(timezone.utc) + timedelta(days=duration_days)
     
@@ -34,6 +36,7 @@ async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depe
                 "status": "pending",
                 "start_time": datetime.now(timezone.utc).isoformat(),
                 "end_time": end_time.isoformat(),
+                **({"invite_expires_at": end_time.isoformat()} if listing.get("listing_type") == "private" else {}),
                 "current_bid": listing["starting_bid"],
                 "bid_count": 0,
                 "highest_bidder_id": None,
@@ -46,4 +49,5 @@ async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depe
         }
     )
     
+    await record_submission(user["_id"], listing_id)
     return {"message": "Item relisted for approval"}

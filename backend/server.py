@@ -18,7 +18,7 @@ from app.seed import _seed_admin
 from app.routers import (
     health, auth, email_verification, password_reset, uploads, catalog, listings, bidding, sniper, buy_now, offers,
     watchlist, saved_searches, feedback, dashboard, seller_stats, relist, notifications,
-    verification, reports, admin, profile, messages,
+    verification, reports, admin, profile, messages, listing_manage,
 )
 
 fastapi_app = FastAPI(title="BidCa.ca API - Full Auction Platform")
@@ -61,7 +61,7 @@ async def shutdown():
 for _r in (
     health, auth, email_verification, password_reset, uploads, catalog, listings, bidding, sniper,
     buy_now, offers, watchlist, saved_searches, feedback, dashboard, seller_stats,
-    relist, notifications, verification, reports, admin, profile, messages,
+    relist, notifications, verification, reports, admin, profile, messages, listing_manage,
 ):
     fastapi_app.include_router(_r.router, prefix="/api")
 

@@ -34,8 +34,28 @@ async def disconnect(sid):
 async def join_auction(sid, data):
     auction_id = data.get("auction_id")
     if auction_id:
+        # Live bids on a private listing are for its seller and invitees only (FR-31)
+        if not await _may_watch_live(sid, auction_id):
+            return
         await sio.enter_room(sid, f"auction_{auction_id}")
         logger.info(f"Client {sid} joined auction room {auction_id}")
+
+async def _may_watch_live(sid, auction_id) -> bool:
+    from bson import ObjectId
+    from app.db import db
+    from app.listing_rules import can_view_listing
+    try:
+        listing = await db.listings.find_one({"_id": ObjectId(auction_id)},
+                                             {"listing_type": 1, "seller_id": 1, "invitees": 1})
+    except Exception:
+        return True  # unknown id: the room never gets any events
+    if not listing or listing.get("listing_type") != "private":
+        return True
+    uid = (await sio.get_session(sid)).get("user_id")
+    user = await db.users.find_one({"_id": ObjectId(uid)}, {"role": 1}) if uid else None
+    if user:
+        user["_id"] = str(user["_id"])
+    return can_view_listing(listing, user)
 
 @sio.event
 async def leave_auction(sid, data):

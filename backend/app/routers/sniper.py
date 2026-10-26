@@ -6,6 +6,7 @@ from app.db import db
 from app.security import get_current_user, require_verified_email
 from app.constants import get_bid_increment
 from app.models import SniperBidCreate
+from app.listing_rules import can_view_listing
 
 router = APIRouter()
 
@@ -18,6 +19,8 @@ async def create_sniper_bid(listing_id: str, sniper: SniperBidCreate, user: dict
     except:
         raise HTTPException(status_code=404, detail="Listing not found")
     
+    if listing and not can_view_listing(listing, user):  # private: invitees only (FR-31)
+        raise HTTPException(status_code=404, detail="Listing not found")
     if not listing or listing["status"] != "active":
         raise HTTPException(status_code=400, detail="Listing not available")
     

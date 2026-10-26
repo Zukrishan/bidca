@@ -20,7 +20,8 @@ async def get_user_profile(user_id: str):
     
     # Get active listings
     # listings store seller_id as the stringified user id
-    active_listings = await db.listings.count_documents({"seller_id": str(user["_id"]), "status": "active"})
+    active_listings = await db.listings.count_documents(
+        {"seller_id": str(user["_id"]), "status": "active", "listing_type": {"$ne": "private"}})  # FR-31
     
     return {
         "id": str(user["_id"]),

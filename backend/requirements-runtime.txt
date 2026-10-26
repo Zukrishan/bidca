@@ -34,3 +34,4 @@ typing_extensions==4.15.0
 typing-inspection==0.4.2
 email-validator==2.3.0
 python-multipart==0.0.22
+tzdata==2025.3

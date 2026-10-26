@@ -64,6 +64,8 @@ async def alert_saved_searches(listing: dict) -> int:
 
 
 async def _alert(listing: dict) -> int:
+    if listing.get("listing_type") == "private":
+        return 0  # invite-only: never announced (FR-31)
     listing_id = str(listing["_id"])
     seller_id = str(listing.get("seller_id"))
     price = listing_price(listing)

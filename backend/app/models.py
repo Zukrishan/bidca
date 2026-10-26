@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional, Literal
+from pydantic import BaseModel, EmailStr, Field
+from typing import Any, Dict, List, Optional, Literal
 
 class UserRegister(BaseModel):
     email: EmailStr
@@ -13,14 +13,29 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class VehicleDisclosure(BaseModel):
+    """Seller's answers for a Vehicles listing (FR-30, Q008). All required on submit, not on a draft."""
+    accident_history: Optional[bool] = None
+    accident_description: Optional[str] = None  # required when accident_history is true
+    mechanical_issues: Optional[bool] = None
+    mechanical_description: Optional[str] = None  # required when mechanical_issues is true
+    previous_owners: Optional[int] = Field(default=None, ge=0, le=99)
+    safety_certificate: Optional[bool] = None
+    safety_certificate_url: Optional[str] = None  # optional upload
+    odometer_km: Optional[int] = Field(default=None, ge=0, le=5_000_000)
+    liens: Optional[bool] = None
+
+
 class AuctionCreate(BaseModel):
-    title: str
-    category: str
+    # Optional so a draft can be saved half-filled; a listing submitted for approval must have
+    # title, category, description, condition, city and a starting bid (checked in app/listing_rules.py).
+    title: Optional[str] = None
+    category: Optional[str] = None
     subcategory: Optional[str] = None
-    description: str
-    city: str
+    description: Optional[str] = None
+    city: Optional[str] = None
     province: str = "British Columbia"
-    starting_bid: float
+    starting_bid: Optional[float] = None
     reserve_price: Optional[float] = None
     buy_it_now_price: Optional[float] = None
     duration_days: Literal[1, 3, 5, 7, 10] = 7
@@ -28,7 +43,20 @@ class AuctionCreate(BaseModel):
     condition: Literal["new", "like_new", "good", "fair", "poor"] = "good"
     # No shipping: buyer and seller exchange in person (FR-05). Old clients' shipping fields are ignored.
     accepts_best_offer: bool = False  # fixed-price only (FR-28); ignored for auctions
-    listing_type: Literal["auction", "fixed_price", "auction_bin"] = "auction"
+    listing_type: Literal["auction", "fixed_price", "auction_bin", "private"] = "auction"
+    draft: bool = False  # true: saved as a seller-only draft, not submitted (FR-05)
+    category_fields: Optional[Dict[str, Any]] = None  # see constants.CATEGORY_FIELDS
+    vehicle_disclosure: Optional[VehicleDisclosure] = None  # required for Vehicles (Q008)
+    # Private listings (FR-31): BidCa user ids, emails or phone numbers of people invited to bid
+    invitees: List[str] = []
+
+
+class CancelListingRequest(BaseModel):
+    confirm_penalty: bool = False  # must be true to cancel a listing that has bids (FR-29)
+
+
+class InviteCreate(BaseModel):
+    identifier: str  # a BidCa user id, email or phone number
 
 class BidCreate(BaseModel):
     max_bid: float  # Proxy bidding - user's maximum bid

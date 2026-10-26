@@ -9,6 +9,7 @@ from app.security import require_admin
 from app.models import ListingUpdate, UserUpdate
 from app.helpers import calculate_positive_percentage, create_notification, parse_object_id
 from app.search_alerts import alert_saved_searches
+from app.listing_rules import mark_submission_rejected
 
 router = APIRouter()
 
@@ -89,6 +90,8 @@ async def admin_update_listing(listing_id: str, update: ListingUpdate, backgroun
             f"Your listing '{listing['title']}' has been {update.status}",
             listing_id
         )
+        if update.status == "rejected":
+            await mark_submission_rejected(listing_id)  # rejected listings don't count (FR-34)
         # FR-13: the listing just became publicly active, so tell matching saved searches
         if update.status == "active" and before and before.get("status") != "active":
             background_tasks.add_task(alert_saved_searches, listing)

@@ -29,6 +29,11 @@ async def leave_feedback(transaction_id: str, feedback: FeedbackCreate, user: di
         feedback_type = "seller_to_buyer"
     else:
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Private (invite-only) listings have no ratings (FR-31, Q007)
+    deal_listing = await db.listings.find_one({"_id": ObjectId(transaction["listing_id"])}, {"listing_type": 1})
+    if deal_listing and deal_listing.get("listing_type") == "private":
+        raise HTTPException(status_code=403, detail="Private listings can't be rated")
     
     # Check if already left feedback
     existing = await db.feedback.find_one({
