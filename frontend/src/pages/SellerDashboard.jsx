@@ -46,6 +46,8 @@ export default function SellerDashboard() {
       pending: "bg-yellow-500 text-white",
       active: "bg-green-600 text-white",
       ended: "bg-muted text-muted-foreground",
+      unsold: "bg-muted text-muted-foreground",
+      sold: "bg-secondary text-white",
       completed: "bg-secondary text-white",
       rejected: "bg-destructive text-white"
     };
@@ -101,9 +103,9 @@ export default function SellerDashboard() {
               </p>
             </div>
             <div className="bg-white border border-border p-4">
-              <p className="text-sm text-muted-foreground mb-1">Completed</p>
+              <p className="text-sm text-muted-foreground mb-1">Sold</p>
               <p className="font-heading text-2xl font-bold">
-                {listings.filter((l) => l.status === "completed").length}
+                {listings.filter((l) => l.status === "sold").length}
               </p>
             </div>
           </div>
@@ -111,7 +113,7 @@ export default function SellerDashboard() {
           {/* Filters */}
           <div className="bg-white border border-border mb-6">
             <div className="flex overflow-x-auto">
-              {["all", "active", "pending", "ended", "completed"].map((f) => (
+              {["all", "active", "pending", "sold", "unsold"].map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}

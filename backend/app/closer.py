@@ -273,8 +273,9 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
             },
         )
 
-        # Create transaction (idempotent by listing_id + type)
-        existing_tx = await db.transactions.find_one({"listing_id": listing_id, "type": "auction"})
+        # Create transaction (idempotent by listing_id + type; a cancelled sale of a relisted item doesn't count)
+        existing_tx = await db.transactions.find_one(
+            {"listing_id": listing_id, "type": "auction", "status": {"$ne": "cancelled"}})
         if not existing_tx:
             await db.transactions.insert_one({
                 "listing_id": listing_id,
@@ -396,7 +397,7 @@ async def _notify_losing_bidders(listing_id: str, title: str, winner_id: str | N
 # ---------------------------------------------------------------------------
 
 async def run_once(db, sio=None) -> None:
-    """Single closer pass: execute due sniper bids then close due auctions."""
+    """Single closer pass: execute due sniper bids, close due auctions, then the transaction jobs."""
     try:
         await _execute_sniper_bids(db)
     except Exception as exc:
@@ -405,6 +406,11 @@ async def run_once(db, sio=None) -> None:
         await _close_due_auctions(db, sio)
     except Exception as exc:
         logger.error("Auction close error: %s", exc)
+    try:
+        from app.transaction_jobs import run_transaction_jobs
+        await run_transaction_jobs(db)
+    except Exception as exc:
+        logger.error("Transaction job error: %s", exc)
 
 
 async def _closer_loop(db, sio, interval: int = 30) -> None:

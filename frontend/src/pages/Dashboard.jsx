@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useAuth, API } from "../App";
+import { useAuth, API, formatCAD, formatApiErrorDetail } from "../App";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import axios from "axios";
+import { toast } from "sonner";
 import {
-  User,
   ShieldCheck,
   Gavel,
   Tag,
@@ -15,8 +15,65 @@ import {
   MapPin,
   CheckCircle,
   Warning,
-  ArrowRight
+  ArrowRight,
+  ChatCircle,
+  Handshake
 } from "@phosphor-icons/react";
+
+// Transaction states (no money involved: open → completed, or disputed / cancelled)
+const TX_LABELS = {
+  open: "Awaiting completion",
+  completed: "Completed",
+  disputed: "Disputed",
+  cancelled: "Cancelled"
+};
+
+const LISTING_LABELS = {
+  pending: "Pending review",
+  active: "Active",
+  sold: "Sold",
+  unsold: "Ended, unsold",
+  ended: "Ended",
+  rejected: "Rejected"
+};
+
+// The transaction page lives in the Next.js app (web), so it's a plain link, not a router Link
+function MessageButton({ transactionId }) {
+  return (
+    <a
+      href={`/messages/${transactionId}`}
+      className="inline-flex items-center gap-1 px-3 py-2 bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+      data-testid={`message-${transactionId}`}
+    >
+      <ChatCircle className="h-4 w-4" />
+      Message
+    </a>
+  );
+}
+
+function Thumb({ src }) {
+  return (
+    <div className="w-16 h-16 bg-muted flex-shrink-0">
+      {src ? (
+        <img src={src} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <Gavel className="h-6 w-6 text-muted-foreground" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Empty({ icon: Icon, text, children }) {
+  return (
+    <div className="text-center py-12">
+      <Icon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+      <p className="text-muted-foreground mb-4">{text}</p>
+      {children}
+    </div>
+  );
+}
 
 // Countdown Timer
 function CountdownTimer({ endTime }) {
@@ -53,8 +110,12 @@ function CountdownTimer({ endTime }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  // FR-23: Selling / Current Bids / Successfully Completed (+ Notifications)
   const [activeTab, setActiveTab] = useState("bids");
+  const [selling, setSelling] = useState([]);
   const [bids, setBids] = useState([]);
+  const [won, setWon] = useState([]);
+  const [completed, setCompleted] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,11 +125,16 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [bidsRes, notifRes] = await Promise.all([
-        axios.get(`${API}/users/me/bids`),
+      const [sellingRes, bidsRes, completedRes, notifRes] = await Promise.all([
+        axios.get(`${API}/users/me/selling`),
+        axios.get(`${API}/users/me/current-bids`),
+        axios.get(`${API}/users/me/completed`),
         axios.get(`${API}/notifications`)
       ]);
+      setSelling(sellingRes.data.listings || []);
       setBids(bidsRes.data.bids || []);
+      setWon(bidsRes.data.won || []);
+      setCompleted(completedRes.data.transactions || []);
       setNotifications(notifRes.data.notifications || []);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -76,6 +142,23 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  const relist = async (listingId) => {
+    try {
+      await axios.post(`${API}/listings/${listingId}/relist`);
+      toast.success("Relisted — it goes live after review");
+      fetchData();
+    } catch (error) {
+      toast.error(formatApiErrorDetail(error.response?.data?.detail));
+    }
+  };
+
+  const tabs = [
+    { id: "selling", label: "Selling", icon: Tag },
+    { id: "bids", label: "Current Bids", icon: Gavel, count: won.length },
+    { id: "completed", label: "Successfully Completed", icon: Handshake },
+    { id: "notifications", label: "Notifications", icon: Bell }
+  ];
 
   const markNotificationRead = async (id) => {
     try {
@@ -161,38 +244,36 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tabs */}
+          {/* Tabs (FR-23) */}
           <div className="bg-white border border-border mb-6">
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => setActiveTab("bids")}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === "bids"
-                    ? "border-b-2 border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="tab-bids"
-              >
-                <Gavel className="h-5 w-5 inline mr-2" />
-                My Bids
-              </button>
-              <button
-                onClick={() => setActiveTab("notifications")}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === "notifications"
-                    ? "border-b-2 border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="tab-notifications"
-              >
-                <Bell className="h-5 w-5 inline mr-2" />
-                Notifications
-                {unreadCount > 0 && (
-                  <span className="absolute top-2 ml-1 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+            <div className="flex overflow-x-auto border-b border-border" role="tablist">
+              {tabs.map(({ id, label, icon: Icon, count }) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={activeTab === id}
+                  onClick={() => setActiveTab(id)}
+                  className={`flex-1 flex-shrink-0 whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === id
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`tab-${id}`}
+                >
+                  <Icon className="h-5 w-5 inline mr-2" />
+                  {label}
+                  {id === "notifications" && unreadCount > 0 && (
+                    <span className="ml-2 inline-flex w-5 h-5 bg-primary text-white text-xs rounded-full items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                  {count > 0 && (
+                    <span className="ml-2 inline-flex w-5 h-5 bg-primary text-white text-xs rounded-full items-center justify-center">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
             <div className="p-6">
@@ -200,71 +281,178 @@ export default function Dashboard() {
                 <div className="flex items-center justify-center py-12">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
-              ) : activeTab === "bids" ? (
-                <div>
-                  {bids.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Gavel className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground mb-4">You haven't placed any bids yet.</p>
-                      <Link
-                        to="/auctions"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
-                      >
-                        Browse Auctions
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {bids.map((bid) => (
-                        <Link
-                          key={bid.bid_id}
-                          to={`/auctions/${bid.listing_id}`}
-                          className="flex items-center gap-4 p-4 border border-border hover:border-primary transition-colors"
-                          data-testid={`bid-item-${bid.bid_id}`}
+              ) : activeTab === "selling" ? (
+                selling.length === 0 ? (
+                  <Empty icon={Tag} text="You aren't selling anything yet.">
+                    <Link
+                      to="/create-listing"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      Sell an item
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Empty>
+                ) : (
+                  <div className="space-y-4">
+                    {selling.map((l) => {
+                      const tx = l.transaction;
+                      const fellThrough = tx && tx.status === "cancelled";
+                      return (
+                        <div
+                          key={l._id}
+                          className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border border-border"
+                          data-testid={`selling-${l._id}`}
                         >
-                          <div className="w-16 h-16 bg-muted flex-shrink-0">
-                            {bid.listing_image ? (
-                              <img src={bid.listing_image} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Gavel className="h-6 w-6 text-muted-foreground" />
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <Thumb src={l.image} />
+                            <div className="flex-1 min-w-0">
+                              <Link to={`/auctions/${l._id}`} className="font-medium truncate block hover:underline">
+                                {l.title}
+                              </Link>
+                              <p className="text-sm text-muted-foreground">
+                                {LISTING_LABELS[l.status] || l.status}
+                                {tx ? ` · ${TX_LABELS[tx.status] || tx.status}` : ""}
+                                {fellThrough && tx.cancelled_reason === "no_response" ? " (buyer didn't respond)" : ""}
+                              </p>
+                              <p className="text-sm">
+                                <span className="font-bold">
+                                  {formatCAD(l.status === "sold" ? l.sold_price : l.current_bid ?? l.buy_it_now_price)}
+                                </span>
+                                {l.status === "active" && l.listing_type !== "fixed_price" && (
+                                  <span className="text-muted-foreground"> · {l.bid_count || 0} bids · <CountdownTimer endTime={l.end_time} /></span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            {tx && !fellThrough && <MessageButton transactionId={tx._id} />}
+                            {(l.status === "unsold" || l.status === "ended" || (l.status === "sold" && fellThrough)) && (
+                              <button
+                                onClick={() => relist(l._id)}
+                                className="px-3 py-2 border border-border text-sm font-medium hover:border-primary transition-colors"
+                                data-testid={`relist-${l._id}`}
+                              >
+                                Relist
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              ) : activeTab === "bids" ? (
+                bids.length === 0 && won.length === 0 ? (
+                  <Empty icon={Gavel} text="You have no active bids or items waiting to be completed.">
+                    <Link
+                      to="/auctions"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      Browse Auctions
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Empty>
+                ) : (
+                  <div className="space-y-6">
+                    {won.length > 0 && (
+                      <section>
+                        <h2 className="font-heading font-bold mb-3">Won — message the seller to complete</h2>
+                        <div className="space-y-4">
+                          {won.map((t) => (
+                            <div
+                              key={t._id}
+                              className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border border-primary/40"
+                              data-testid={`won-${t._id}`}
+                            >
+                              <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <Thumb src={t.listing.image} />
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium truncate">{t.listing.title}</h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatCAD(t.amount)} · from {t.other_party.full_name} · {TX_LABELS[t.status] || t.status}
+                                    {t.my_completed && t.status === "open" ? " (waiting for the seller)" : ""}
+                                  </p>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                          
+                              <MessageButton transactionId={t._id} />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                    {bids.length > 0 && (
+                      <section>
+                        <h2 className="font-heading font-bold mb-3">Bidding now</h2>
+                        <div className="space-y-4">
+                          {bids.map((b) => (
+                            <Link
+                              key={b._id}
+                              to={`/auctions/${b._id}`}
+                              className="flex items-center gap-4 p-4 border border-border hover:border-primary transition-colors"
+                              data-testid={`bid-item-${b._id}`}
+                            >
+                              <Thumb src={b.image} />
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium truncate">{b.title}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  Current bid: <span className="font-bold text-foreground">{formatCAD(b.current_bid)}</span>
+                                  {b.my_max_bid ? ` · your max ${formatCAD(b.my_max_bid)}` : ""}
+                                </p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                {b.is_winning ? (
+                                  <span className="inline-flex items-center gap-1 text-sm text-green-600 font-medium">
+                                    <CheckCircle className="h-4 w-4" />
+                                    Winning
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                                    <Warning className="h-4 w-4" />
+                                    Outbid
+                                  </span>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  <CountdownTimer endTime={b.end_time} />
+                                </p>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                )
+              ) : activeTab === "completed" ? (
+                completed.length === 0 ? (
+                  <Empty icon={Handshake} text="No completed transactions yet." />
+                ) : (
+                  <div className="space-y-4">
+                    {completed.map((t) => (
+                      <div
+                        key={t._id}
+                        className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border border-border"
+                        data-testid={`completed-${t._id}`}
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <Thumb src={t.listing.image} />
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium truncate">{bid.listing_title}</h3>
+                            <h3 className="font-medium truncate">{t.listing.title}</h3>
                             <p className="text-sm text-muted-foreground">
-                              Your bid: <span className="font-bold text-foreground">${bid.amount?.toLocaleString()}</span>
+                              {t.role === "buyer" ? "Bought from" : "Sold to"} {t.other_party.full_name} · {formatCAD(t.amount)}
+                              {t.completed_at ? ` · ${new Date(t.completed_at).toLocaleDateString()}` : ""}
                             </p>
                           </div>
-
-                          <div className="text-right flex-shrink-0">
-                            {bid.is_winning ? (
-                              <span className="inline-flex items-center gap-1 text-sm text-green-600 font-medium">
-                                <CheckCircle className="h-4 w-4" />
-                                Winning
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                                <Warning className="h-4 w-4" />
-                                Outbid
-                              </span>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {bid.status === "active" ? (
-                                <CountdownTimer endTime={bid.end_time} />
-                              ) : (
-                                <span className="capitalize">{bid.status}</span>
-                              )}
-                            </p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        </div>
+                        <a
+                          href={`/messages/${t._id}`}
+                          className="px-3 py-2 border border-border text-sm font-medium hover:border-primary transition-colors text-center"
+                        >
+                          {t.rated ? "View" : "Rate"}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )
               ) : (
                 <div>
                   {notifications.length > 0 && (
@@ -279,10 +467,7 @@ export default function Dashboard() {
                     </div>
                   )}
                   {notifications.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">No notifications yet.</p>
-                    </div>
+                    <Empty icon={Bell} text="No notifications yet." />
                   ) : (
                     <div className="space-y-2">
                       {notifications.map((notif) => (

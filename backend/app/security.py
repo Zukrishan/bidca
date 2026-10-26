@@ -41,7 +41,23 @@ def account_block_reason(user: dict) -> Optional[str]:
         return "Account has been banned"
     if user.get("is_suspended"):
         return "Account has been suspended"
+    # Timed lock (no-response FR-26, moderation): blocked only while `suspended_until` is in the future
+    until = _parse_iso(user.get("suspended_until"))
+    if until and until > datetime.now(timezone.utc):
+        reason = user.get("suspension_reason")
+        msg = f"Your account is locked until {until.strftime('%Y-%m-%d %H:%M')} UTC"
+        return f"{msg}: {reason}" if reason else msg
     return None
+
+def _parse_iso(value) -> Optional[datetime]:
+    """An ISO-8601 string (or datetime) as an aware UTC datetime; None if missing or malformed."""
+    if not value:
+        return None
+    try:
+        dt = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 async def user_from_access_token(token: str) -> dict:
     """Resolve an access token to an active user (no password_hash). Raises HTTPException 401/403."""

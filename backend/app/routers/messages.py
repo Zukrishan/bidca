@@ -171,6 +171,11 @@ async def send_message(transaction_id: str, payload: MessageIn, user: dict = Dep
     res = await db.messages.insert_one(doc)
     message = _public({**doc, "_id": res.inserted_id})
 
+    # The buyer's first message is their response to the win; it stops the no-response job (FR-26).
+    if uid == str(t["buyer_id"]) and not t.get("buyer_responded_at"):
+        await db.transactions.update_one({"_id": t["_id"], "buyer_responded_at": None},
+                                         {"$set": {"buyer_responded_at": doc["created_at"]}})
+
     # Real-time push is best effort: it must never fail the send.
     try:
         await sio.emit("message", {"transaction_id": tid, "message": message}, room=f"user_{recipient_id}")

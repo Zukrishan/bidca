@@ -22,7 +22,11 @@ async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depe
     if str(listing["seller_id"]) != user["_id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    if listing["status"] not in ["ended", "unsold"]:
+    if listing["status"] == "sold":
+        # A sale that fell through (e.g. the buyer never answered, FR-26) frees the item again
+        if not await _sale_fell_through(listing_id):
+            raise HTTPException(status_code=400, detail="Can only relist ended or unsold items, or a sale that was cancelled")
+    elif listing["status"] not in ["ended", "unsold"]:
         raise HTTPException(status_code=400, detail="Can only relist ended or unsold items")
     
     end_time = datetime.now(timezone.utc) + timedelta(days=duration_days)
@@ -41,9 +45,18 @@ async def relist_item(listing_id: str, duration_days: int = 7, user: dict = Depe
                 "highest_bidder_max_bid": None,
                 "reserve_met": False if listing.get("reserve_price") else True,
                 "winner_id": None,
-                "sold_price": None
+                "sold_price": None,
+                "sold_via": None,
+                "closed_at": None
             }
         }
     )
-    
+
     return {"message": "Item relisted for approval"}
+
+
+async def _sale_fell_through(listing_id: str) -> bool:
+    """True when this listing's sale was cancelled and no other sale of it is still live."""
+    if not await db.transactions.find_one({"listing_id": listing_id, "status": "cancelled"}):
+        return False
+    return not await db.transactions.find_one({"listing_id": listing_id, "status": {"$ne": "cancelled"}})

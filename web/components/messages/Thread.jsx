@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
+import { TransactionPanel } from "@/components/messages/TransactionPanel";
 import { Button } from "@/components/ui/button";
 import { PUBLIC_API_URL } from "@/lib/config";
 import { clientApi, getMe } from "@/lib/client-api";
@@ -127,6 +128,9 @@ export function Thread({ transactionId }) {
         </div>
       </div>
 
+      <TransactionPanel transactionId={transactionId} />
+
+      <h2 className="font-semibold">Chat about this deal</h2>
       <ul className="flex min-h-48 flex-col gap-2" aria-live="polite">
         {messages.length === 0 && (
           <li className="text-muted-foreground">No messages yet. Say hello and agree a time and place for pickup.</li>
