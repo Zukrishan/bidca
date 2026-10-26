@@ -26,9 +26,8 @@ class AuctionCreate(BaseModel):
     duration_days: Literal[1, 3, 5, 7, 10] = 7
     images: List[str] = []
     condition: Literal["new", "like_new", "good", "fair", "poor"] = "good"
-    shipping_cost: float = 0
-    shipping_from: str = "British Columbia"
-    accepts_best_offer: bool = False
+    # No shipping: buyer and seller exchange in person (FR-05). Old clients' shipping fields are ignored.
+    accepts_best_offer: bool = False  # fixed-price only (FR-28); ignored for auctions
     listing_type: Literal["auction", "fixed_price", "auction_bin"] = "auction"
 
 class BidCreate(BaseModel):

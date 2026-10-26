@@ -7,13 +7,14 @@ import { io } from "socket.io-client";
 import { Button } from "@/components/ui/button";
 import { PUBLIC_API_URL } from "@/lib/config";
 import { clientApi, getMe } from "@/lib/client-api";
+import { BC_TIME_ZONE } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const MAX = 2000;
 const POLL_MS = 20000;
 
-const timeFmt = new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-const when = (iso) => timeFmt.format(new Date(iso));
+const timeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: BC_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const when = (iso) => `${timeFmt.format(new Date(iso))} PT`;
 
 /** Merge by _id, oldest first (live push, polling and our own sends can all deliver the same message). */
 function merge(list, incoming) {

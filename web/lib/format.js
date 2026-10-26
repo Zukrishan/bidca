@@ -53,7 +53,21 @@ export function headlinePrice(listing) {
   return listing.buy_it_now_price ?? listing.current_bid ?? listing.starting_bid;
 }
 
+// Users see BC/Pacific time, labelled, whatever the server's or browser's zone (NFR-06).
+export const BC_TIME_ZONE = "America/Vancouver";
+
+const dateFmt = new Intl.DateTimeFormat("en-CA", { timeZone: BC_TIME_ZONE, year: "numeric", month: "short", day: "numeric" });
+const dateTimeFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BC_TIME_ZONE, year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+});
+
 export function formatDate(iso) {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
+  return dateFmt.format(new Date(iso));
+}
+
+/** "Oct 27, 2026, 3:15 p.m. PT" */
+export function formatDateTime(iso) {
+  if (!iso) return "";
+  return `${dateTimeFmt.format(new Date(iso))} PT`;
 }

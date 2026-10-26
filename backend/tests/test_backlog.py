@@ -65,8 +65,8 @@ async def test_best_offer_rejected_when_not_active_or_not_accepted():
     seller, _ = await _user("b7s@backlog.example")
     _, token = await _user("b7b@backlog.example")
     inactive = await _listing(seller, status="sold")
-    no_offers = await _listing(seller, accepts_best_offer=False)
-    ok = await _listing(seller)
+    no_offers = await _listing(seller, listing_type="fixed_price", accepts_best_offer=False)
+    ok = await _listing(seller, listing_type="fixed_price")
     async with _client(srv, token) as c:
         r1 = await c.post(f"/api/listings/{inactive}/best-offer", json={"offer_amount": 20})
         r2 = await c.post(f"/api/listings/{no_offers}/best-offer", json={"offer_amount": 20})

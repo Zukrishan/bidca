@@ -6,7 +6,7 @@ from app.db import db
 from app.security import get_current_user, require_verified_email
 from app.constants import get_bid_increment
 from app.models import BidCreate
-from app.helpers import create_notification
+from app.helpers import create_notification, notify_outbid
 from app.realtime import broadcast_bid_update
 
 router = APIRouter()
@@ -68,13 +68,12 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
             new_highest_bidder = user["_id"]
             new_max_bid = bid.max_bid
             
-            # Notify outbid user
+            # Notify outbid user, in-app and by email
             if current_highest_bidder:
-                await create_notification(
+                await notify_outbid(
                     str(current_highest_bidder),
-                    "outbid",
+                    listing,
                     f"You've been outbid on '{listing['title']}'! Current bid: ${new_current_bid:.2f}",
-                    listing_id
                 )
         else:
             # Current bidder stays, auto-bid up to new bid
@@ -82,7 +81,7 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
             new_highest_bidder = current_highest_bidder
             new_max_bid = current_max_bid
             
-            # Notify the new bidder they were outbid immediately
+            # Notify the new bidder they were outbid immediately (in-app; the response says so too)
             await create_notification(
                 user["_id"],
                 "outbid",

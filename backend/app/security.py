@@ -7,6 +7,7 @@ from typing import Optional
 from bson import ObjectId
 from fastapi import HTTPException, Request, Response
 
+from app.config import login_lockout
 from app.db import db
 
 # JWT Configuration
@@ -98,7 +99,7 @@ async def increment_login_attempts(identifier: str) -> int:
         new_count = attempts.get("count", 0) + 1
         update = {"$set": {"count": new_count}}
         if new_count >= 5:
-            update["$set"]["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+            update["$set"]["locked_until"] = (datetime.now(timezone.utc) + login_lockout()).isoformat()
         await db.login_attempts.update_one({"identifier": identifier}, update)
         return new_count
     else:

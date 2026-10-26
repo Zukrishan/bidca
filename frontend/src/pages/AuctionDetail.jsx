@@ -396,14 +396,6 @@ export default function AuctionDetail() {
                     <p className="text-xs text-muted-foreground uppercase">Location</p>
                     <p className="font-medium">{listing.city}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase">Shipping</p>
-                    <p className="font-medium">{listing.shipping_cost === 0 ? 'Free' : formatCAD(listing.shipping_cost)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase">Ships From</p>
-                    <p className="font-medium">{listing.shipping_from}</p>
-                  </div>
                 </div>
               </div>
 
@@ -634,20 +626,13 @@ export default function AuctionDetail() {
                   </Link>
                 </div>
 
-                {/* Shipping */}
+                {/* Exchange: in person, no payments through BidCa (NFR-07) */}
                 <div className="mt-4 p-3 bg-muted">
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Shipping</span>
+                    <span className="font-medium">Exchange</span>
                   </div>
-                  <p className="text-sm">
-                    {listing.shipping_cost === 0 ? (
-                      <span className="text-green-600 font-medium">Free Shipping</span>
-                    ) : (
-                      <span>{formatCAD(listing.shipping_cost)} shipping</span>
-                    )}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">Ships from {listing.shipping_from}</p>
+                  <p className="text-sm">Arrange the exchange directly with the seller in {listing.city}. BidCa does not handle payments.</p>
                 </div>
 
                 {/* Report */}
@@ -746,14 +731,6 @@ export default function AuctionDetail() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Price</span>
                 <span className="font-bold text-xl">{formatCAD(listing.buy_it_now_price)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Shipping</span>
-                <span>{listing.shipping_cost === 0 ? 'Free' : formatCAD(listing.shipping_cost)}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-border">
-                <span className="font-medium">Total</span>
-                <span className="font-bold text-xl">{formatCAD(listing.buy_it_now_price + listing.shipping_cost)}</span>
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">

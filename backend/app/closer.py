@@ -152,15 +152,13 @@ async def _execute_single_sniper(db, sb: dict) -> None:
             new_current_bid = min(current_max_bid + bid_increment, max_bid)
             new_highest_bidder = user_id_str
             new_max_bid = max_bid
-            # Notify outbid user
+            # Notify outbid user, in-app and by email (FR-32)
             if current_highest_bidder:
-                await _create_notification(
-                    db,
-                    str(current_highest_bidder),
-                    "outbid",
-                    f"You've been outbid on '{listing['title']}'! Current bid: ${new_current_bid:.2f}",
-                    listing_id,
-                )
+                outbid_msg = f"You've been outbid on '{listing['title']}'! Current bid: ${new_current_bid:.2f}"
+                await _create_notification(db, str(current_highest_bidder), "outbid", outbid_msg, listing_id)
+                from app.helpers import email_user
+                await email_user(str(current_highest_bidder), f"You've been outbid: {listing['title']}",
+                                 outbid_msg, f"/auctions/{listing_id}")
         else:
             new_current_bid = min(max_bid + bid_increment, current_max_bid)
             new_highest_bidder = str(current_highest_bidder)
@@ -284,7 +282,7 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
                 "buyer_id": winner_id,
                 "amount": sold_price,
                 "type": "auction",
-                "status": "pending_payment",
+                "status": "open",  # no money involved (NFR-07); open until both sides complete
                 "created_at": now_iso,
             })
 
@@ -298,30 +296,32 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
             {"$inc": {"total_sales": 1, "total_sales_amount": sold_price}},
         )
 
-        # In-app notifications
-        winner_msg = f"Congratulations! You won '{title}' for ${sold_price:.2f}!"
-        seller_msg = f"Your auction '{title}' ended — sold for ${sold_price:.2f}!"
+        # In-app notifications — wording from the client source (FR-11)
+        winner_msg = f"You won! You won the bid for '{title}' at ${sold_price:.2f}. Message the seller to arrange the exchange."
+        seller_msg = f"Your item '{title}' has a winning bidder at ${sold_price:.2f}. Message the buyer to arrange the exchange."
         await _create_notification(db, winner_id, "auction_won", winner_msg, listing_id)
         await _create_notification(db, seller_id, "item_sold", seller_msg, listing_id)
 
-        # Fetch emails for SendGrid
+        # Emails go out immediately — this is time-sensitive (source L95–99)
         try:
             winner_user = await db.users.find_one({"_id": ObjectId(winner_id)})
             seller_user = await db.users.find_one({"_id": ObjectId(seller_id)})
             if winner_user:
                 await send_email(
                     to=winner_user["email"],
-                    subject=f"You won: {title}",
+                    subject=f"You won the bid for {title}",
                     html=f"<p>{html.escape(winner_msg)}</p>",  # titles are user input
                 )
             if seller_user:
                 await send_email(
                     to=seller_user["email"],
-                    subject=f"Auction sold: {title}",
+                    subject=f"Your item {title} has a winning bidder",
                     html=f"<p>{html.escape(seller_msg)}</p>",  # titles are user input
                 )
         except Exception as exc:
             logger.error("Email send failed for listing %s: %s", listing_id, exc)
+
+        await _notify_losing_bidders(listing_id, title, winner_id)
 
         # Socket.IO
         if sio:
@@ -366,6 +366,9 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
         except Exception as exc:
             logger.error("Email send failed for listing %s: %s", listing_id, exc)
 
+        # Bidders when the reserve wasn't met: nobody won
+        await _notify_losing_bidders(listing_id, title, None)
+
         if sio:
             try:
                 await sio.emit(
@@ -377,6 +380,15 @@ async def _close_listing(db, listing: dict, sio=None) -> None:
                 logger.error("Socket.IO emit failed for listing %s: %s", listing_id, exc)
 
         logger.info("Auction %s closed: UNSOLD", listing_id)
+
+
+async def _notify_losing_bidders(listing_id: str, title: str, winner_id: str | None) -> None:
+    # Best effort: a failed notification must not leave the listing stuck in 'closing'
+    try:
+        from app.helpers import notify_losing_bidders
+        await notify_losing_bidders(listing_id, title, winner_id)
+    except Exception as exc:
+        logger.error("Losing-bidder notifications failed for listing %s: %s", listing_id, exc)
 
 
 # ---------------------------------------------------------------------------

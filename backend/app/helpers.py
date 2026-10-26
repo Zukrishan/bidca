@@ -2,6 +2,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import HTTPException
 
+import html
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -39,6 +40,40 @@ async def create_notification(user_id: str, type: str, message: str, listing_id:
         await send_user_notification(user_id, notification)
     except Exception as exc:
         logger.error("Notification push failed for user %s: %s", user_id, exc)
+
+
+async def email_user(user_id: str, subject: str, message: str, path: Optional[str] = None):
+    """Email `message` (plain text, escaped here) to a user, with an optional site link. Best effort."""
+    from app.config import frontend_origin
+    from app.email import send_email
+    try:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user or not user.get("email"):
+            return
+        body = f"<p>{html.escape(message)}</p>"  # titles and names are user input
+        if path:
+            link = f"{frontend_origin()}{path}"
+            body += f'<p><a href="{link}">{link}</a></p>'
+        await send_email(to=user["email"], subject=subject, html=body)
+    except Exception as exc:
+        logger.error("Email to user %s failed: %s", user_id, exc)
+
+
+async def notify_outbid(user_id: str, listing: dict, message: str):
+    """Outbid alert: in-app and email, straight away (FR-32)."""
+    listing_id = str(listing["_id"])
+    await create_notification(user_id, "outbid", message, listing_id)
+    await email_user(user_id, f"You've been outbid: {listing.get('title', '')}", message,
+                     f"/auctions/{listing_id}")
+
+
+async def notify_losing_bidders(listing_id: str, title: str, winner_id: Optional[str]):
+    """Tell every bidder who didn't win that the auction is over (FR-11) — no silent status change."""
+    bidder_ids = await db.bids.distinct("bidder_id", {"listing_id": listing_id})
+    for bidder_id in bidder_ids:
+        if bidder_id and str(bidder_id) != str(winner_id):
+            await create_notification(str(bidder_id), "auction_lost",
+                                      f"Auction ended — you didn't win '{title}'.", listing_id)
 
 
 def parse_object_id(value: str, not_found: str = "Not found") -> ObjectId:

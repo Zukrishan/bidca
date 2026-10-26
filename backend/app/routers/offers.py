@@ -26,7 +26,8 @@ async def submit_best_offer(listing_id: str, offer: BestOfferCreate, user: dict 
     if listing["status"] != "active":
         raise HTTPException(status_code=400, detail="This listing is not active")
     
-    if not listing.get("accepts_best_offer"):
+    # Once an auction is open its price can't be negotiated (FR-28), whatever older listings stored
+    if listing.get("listing_type") != "fixed_price" or not listing.get("accepts_best_offer"):
         raise HTTPException(status_code=400, detail="This listing does not accept offers")
     
     if str(listing["seller_id"]) == user["_id"]:

@@ -75,7 +75,7 @@ async def _setup(tag):
     lid = await _listing(s_id, status="sold", images=["http://img/1.jpg"])
     tid = str((await db.transactions.insert_one({
         "listing_id": lid, "seller_id": s_id, "buyer_id": b_id, "amount": 40.0, "type": "buy_it_now",
-        "status": "pending_payment", "created_at": datetime.now(timezone.utc).isoformat()})).inserted_id)
+        "status": "open", "created_at": datetime.now(timezone.utc).isoformat()})).inserted_id)
     return dict(s=(s_id, s_tok), b=(b_id, b_tok), x=(x_id, x_tok), lid=lid, tid=tid)
 
 
