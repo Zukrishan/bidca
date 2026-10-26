@@ -167,7 +167,6 @@ export default function BrowseAuctions() {
     listing_type: searchParams.get("type") || "",
     min_price: searchParams.get("min_price") || "",
     max_price: searchParams.get("max_price") || "",
-    free_shipping: searchParams.get("free_shipping") === "true",
     sort: searchParams.get("sort") || "ending_soonest",
     page: parseInt(searchParams.get("page")) || 1
   });
@@ -211,7 +210,6 @@ export default function BrowseAuctions() {
       if (filters.listing_type) params.append("listing_type", filters.listing_type);
       if (filters.min_price) params.append("min_price", filters.min_price);
       if (filters.max_price) params.append("max_price", filters.max_price);
-      if (filters.free_shipping) params.append("free_shipping", "true");
       params.append("sort", filters.sort);
       params.append("page", filters.page);
       params.append("status", "active");
@@ -241,7 +239,7 @@ export default function BrowseAuctions() {
   const clearFilters = () => {
     const newFilters = {
       q: "", category: "", subcategory: "", city: "", condition: "",
-      listing_type: "", min_price: "", max_price: "", free_shipping: false,
+      listing_type: "", min_price: "", max_price: "",
       sort: "ending_soonest", page: 1
     };
     setFilters(newFilters);
@@ -249,7 +247,7 @@ export default function BrowseAuctions() {
   };
 
   const hasActiveFilters = filters.category || filters.city || filters.condition || 
-    filters.listing_type || filters.min_price || filters.max_price || filters.free_shipping;
+    filters.listing_type || filters.min_price || filters.max_price;
 
   const sortOptions = [
     { value: "ending_soonest", label: "Ending Soonest" },
@@ -445,19 +443,6 @@ export default function BrowseAuctions() {
                       <option key={city} value={city}>{city}</option>
                     ))}
                   </select>
-                </div>
-
-                {/* Free Shipping */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={filters.free_shipping}
-                      onChange={(e) => updateFilter("free_shipping", e.target.checked)}
-                      className="accent-primary"
-                    />
-                    Free Shipping Only
-                  </label>
                 </div>
               </div>
             </aside>

@@ -41,8 +41,6 @@ export default function CreateListing() {
     reserve_price: "",
     buy_it_now_price: "",
     duration_days: 7,
-    shipping_cost: "0",
-    shipping_from: "British Columbia",
     accepts_best_offer: false
   });
 
@@ -119,8 +117,6 @@ export default function CreateListing() {
         reserve_price: formData.reserve_price ? parseFloat(formData.reserve_price) : null,
         buy_it_now_price: formData.buy_it_now_price ? parseFloat(formData.buy_it_now_price) : null,
         duration_days: formData.duration_days,
-        shipping_cost: parseFloat(formData.shipping_cost) || 0,
-        shipping_from: formData.shipping_from,
         accepts_best_offer: formData.accepts_best_offer
       };
 
@@ -357,19 +353,6 @@ export default function CreateListing() {
                           ))}
                         </select>
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Shipping Cost (CAD)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={formData.shipping_cost}
-                          onChange={(e) => setFormData({ ...formData, shipping_cost: e.target.value })}
-                          className="w-full px-4 py-2 border border-input focus:border-primary outline-none"
-                          placeholder="0 for free shipping"
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -505,9 +488,9 @@ export default function CreateListing() {
                 <div className="bg-yellow-50 border border-yellow-200 p-4 flex items-start gap-3">
                   <Info className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm">
-                    <p className="font-medium text-yellow-800">Seller Fees</p>
+                    <p className="font-medium text-yellow-800">No fees, no payments</p>
                     <p className="text-yellow-700">
-                      10% fee on final sale price. No listing fees. You only pay when your item sells.
+                      Listing is free. BidCa never handles money — you and the buyer arrange the exchange directly.
                     </p>
                   </div>
                 </div>

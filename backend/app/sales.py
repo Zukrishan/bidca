@@ -14,7 +14,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 
 from app.db import db
-from app.helpers import create_notification
+from app.helpers import create_notification, email_user, notify_losing_bidders
 from app.realtime import broadcast_auction_end
 
 
@@ -39,7 +39,7 @@ async def complete_sale(listing: dict, buyer_id: str, price: float, sold_via: st
         "buyer_id": buyer_id,
         "amount": price,
         "type": sold_via,
-        "status": "pending_payment",
+        "status": "open",  # no money involved (NFR-07); open until both sides complete
         "created_at": now,
     }
     if offer_id:
@@ -52,11 +52,15 @@ async def complete_sale(listing: dict, buyer_id: str, price: float, sold_via: st
                               {"$inc": {"total_sales": 1, "total_sales_amount": price}})
 
     how = "via Buy It Now" if sold_via == "buy_it_now" else "by accepting an offer"
-    await create_notification(seller_id, "item_sold",
-                              f"Your item '{listing['title']}' sold {how} for ${price:.2f}!", listing_id)
-    await create_notification(buyer_id, "purchase_complete",
-                              f"You bought '{listing['title']}' for ${price:.2f}. Arrange pickup with the seller.",
-                              listing_id)
+    seller_msg = f"Your item '{listing['title']}' sold {how} for ${price:.2f}. Message the buyer to arrange the exchange."
+    buyer_msg = f"You bought '{listing['title']}' for ${price:.2f}. Message the seller to arrange the exchange."
+    await create_notification(seller_id, "item_sold", seller_msg, listing_id)
+    await create_notification(buyer_id, "purchase_complete", buyer_msg, listing_id)
+    # Both sides are emailed immediately, as for an auction win (FR-11)
+    await email_user(seller_id, f"Your item {listing['title']} has a buyer", seller_msg, "/messages")
+    await email_user(buyer_id, f"You bought {listing['title']}", buyer_msg, "/messages")
+    if listing.get("listing_type") == "auction_bin":
+        await notify_losing_bidders(listing_id, listing["title"], buyer_id)
 
     await broadcast_auction_end(listing_id, {
         "listing_id": listing_id, "status": "sold", "sold_price": price, "winner_id": buyer_id,

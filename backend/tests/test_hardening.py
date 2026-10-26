@@ -221,7 +221,7 @@ async def test_accepting_an_offer_records_the_sale():
     seller, seller_token = await _user("offer-seller@hard.example")
     buyer, buyer_token = await _user("offer-buyer@hard.example")
     _, rival_token = await _user("offer-rival@hard.example")
-    lid = await _listing(seller)
+    lid = await _listing(seller, listing_type="fixed_price")
     async with _client(srv, buyer_token) as c:
         assert (await c.post(f"/api/listings/{lid}/best-offer", json={"offer_amount": 40})).status_code == 200
     async with _client(srv, rival_token) as c:

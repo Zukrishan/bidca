@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth, formatCAD } from "../App";
 import Navbar from "../components/layout/Navbar";
@@ -183,8 +183,6 @@ const categoryIcons = {
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
   const [featuredAuctions, setFeaturedAuctions] = useState([]);
   const [endingSoon, setEndingSoon] = useState([]);
   const [categories, setCategories] = useState({});
@@ -214,13 +212,6 @@ export default function Home() {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/auctions?q=${encodeURIComponent(searchQuery)}`);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
@@ -237,28 +228,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="max-w-3xl mx-auto">
-            <div className="flex bg-white rounded-sm overflow-hidden">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for items... (e.g., iPhone, vintage watch, hockey cards)"
-                className="flex-1 px-4 py-4 text-foreground outline-none"
-                data-testid="search-input"
-              />
-              <button
-                type="submit"
-                className="px-6 bg-primary text-white font-bold hover:bg-primary/90 transition-colors flex items-center gap-2"
-                data-testid="search-btn"
-              >
-                <MagnifyingGlass className="h-5 w-5" />
-                <span className="hidden sm:inline">Search</span>
-              </button>
-            </div>
-          </form>
-
+          {/* One search bar only — it lives in the Navbar (client source L25) */}
           {/* Popular Keywords */}
           <div className="flex flex-wrap justify-center gap-2 mt-4">
             <span className="text-gray-400 text-sm">Popular:</span>
@@ -375,7 +345,7 @@ export default function Home() {
               { icon: Users, title: "Create Account", desc: "Sign up with your BC postal code" },
               { icon: MagnifyingGlass, title: "Find Items", desc: "Search or browse categories" },
               { icon: Gavel, title: "Place Bids", desc: "Set your maximum, we bid for you" },
-              { icon: Trophy, title: "Win & Pay", desc: "Secure payment, local pickup or ship" }
+              { icon: Trophy, title: "Win & Meet", desc: "Chat with the seller and exchange in person" }
             ].map((step, i) => (
               <div key={i} className="text-center">
                 <div className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
@@ -409,9 +379,9 @@ export default function Home() {
             </div>
             <div className="p-6 border border-border">
               <Package className="h-10 w-10 text-primary mb-4" weight="fill" />
-              <h3 className="font-bold text-lg mb-2">Local & Shipping</h3>
+              <h3 className="font-bold text-lg mb-2">Local Exchange</h3>
               <p className="text-sm text-muted-foreground">
-                Meet locally in BC or have items shipped. Your choice.
+                Buyer and seller meet in BC and exchange directly. BidCa never handles your money.
               </p>
             </div>
           </div>

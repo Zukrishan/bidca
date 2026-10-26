@@ -13,7 +13,7 @@ import { BidPanel } from "@/components/listing/BidPanel";
 import { ReportForm } from "@/components/listing/ReportForm";
 import { apiGet } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
-import { CONDITION_LABELS, LISTING_TYPE_LABELS, formatCAD, formatDate, headlinePrice, isAuction } from "@/lib/format";
+import { CONDITION_LABELS, LISTING_TYPE_LABELS, formatCAD, formatDate, formatDateTime, headlinePrice, isAuction } from "@/lib/format";
 
 const PUBLIC_STATUSES = ["active", "ended", "sold", "unsold"];
 
@@ -107,7 +107,7 @@ export default async function ListingPage({ params }) {
     ["Condition", CONDITION_LABELS[listing.condition] || listing.condition],
     ["Category", [listing.category, listing.subcategory].filter(Boolean).join(" › ")],
     ["Listed", formatDate(listing.created_at)],
-    auction && listing.end_time ? ["Ends", formatDate(listing.end_time)] : null,
+    auction && listing.end_time ? ["Ends", formatDateTime(listing.end_time)] : null,
     ["Views", listing.views_count ?? 0],
   ].filter(Boolean);
 

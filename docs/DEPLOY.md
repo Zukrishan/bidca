@@ -1,6 +1,6 @@
 # Deploying BidCa (container setup)
 
-> **Not deployed. Blocked on Q006 (hosting target).** (B10 secure cookies: fixed — Secure whenever `ENV=production`.)
+> **Not deployed. Hosting: DigitalOcean (Q006, 26 Oct 2026)** — a Droplet running this compose stack, with DigitalOcean Managed MongoDB planned instead of the bundled `mongo`. Deploy after Phase 9b–9d (docs/project_phases.md). (B10 secure cookies: fixed — Secure whenever `ENV=production`.)
 > This document describes a host-agnostic Docker setup only.
 
 ## Architecture

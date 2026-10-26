@@ -43,10 +43,8 @@ async def create_listing(listing: AuctionCreate, user: dict = Depends(require_ve
         "reserve_price": listing.reserve_price,
         "reserve_met": False if listing.reserve_price else True,
         "buy_it_now_price": listing.buy_it_now_price,
-        "accepts_best_offer": listing.accepts_best_offer,
-        # Shipping
-        "shipping_cost": listing.shipping_cost,
-        "shipping_from": listing.shipping_from,
+        # No negotiating once an auction is open (FR-28): offers are for fixed-price listings only
+        "accepts_best_offer": listing.accepts_best_offer and listing.listing_type == "fixed_price",
         # Timing
         "duration_days": listing.duration_days,
         "start_time": datetime.now(timezone.utc).isoformat(),
@@ -94,7 +92,6 @@ async def get_listings(
     listing_type: Optional[str] = None,
     seller_id: Optional[str] = None,
     seller_rating: Optional[float] = None,
-    free_shipping: Optional[bool] = None,
     status: str = "active",
     sort: str = "ending_soonest",
     page: int = 1,
@@ -137,9 +134,7 @@ async def get_listings(
         query["seller_id"] = seller_id
     if seller_rating:
         query["seller_rating"] = {"$gte": seller_rating}
-    if free_shipping:
-        query["shipping_cost"] = 0
-    
+
     # Sorting
     sort_options = {
         "ending_soonest": [("end_time", 1)],

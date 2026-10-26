@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { Eye } from "lucide-react";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PUBLIC_API_URL } from "@/lib/config";
 import { clientApi, getMe } from "@/lib/client-api";
-import { formatCAD, isAuction, isUrgent, headlinePrice } from "@/lib/format";
+import { formatCAD, formatDateTime, isAuction, isUrgent, headlinePrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 // Mirrors backend/app/constants.py get_bid_increment (used only if the API omits bid_increment).
@@ -48,6 +49,7 @@ export function BidPanel({ listing }) {
   const [busy, setBusy] = useState(null);
   const [notice, setNotice] = useState(null); // { kind: ok|error|outbid, text }
   const [confirmBuy, setConfirmBuy] = useState(false);
+  const [confirmBid, setConfirmBid] = useState(null); // amount awaiting "Are you sure?" (FR-08)
   const [snipe, setSnipe] = useState({ open: false, max: "", minutes: "5" });
   const [offer, setOffer] = useState({ open: false, amount: "", message: "" });
 
@@ -105,10 +107,18 @@ export function BidPanel({ listing }) {
     }
   }
 
+  // Bids can't be undone and no payment layer catches mistakes, so every bid is confirmed first.
   function placeBid(e) {
     e.preventDefault();
     const max_bid = parseFloat(amount);
     if (!(max_bid > 0)) return setNotice({ kind: "error", text: "Enter a bid amount." });
+    setNotice(null);
+    setConfirmBid(max_bid);
+  }
+
+  function submitBid() {
+    const max_bid = confirmBid;
+    setConfirmBid(null);
     act("bid", "/bid", { max_bid }, (r) => {
       const winning = r.is_winning ?? true;
       setAmountTouched(false);
@@ -209,13 +219,24 @@ export function BidPanel({ listing }) {
             {listing.status === "active" ? <Countdown endTime={listing.end_time} /> : "Ended"}
           </p>
         )}
+        {auction && listing.end_time && listing.status === "active" && (
+          <p className="text-xs text-muted-foreground">Ends {formatDateTime(listing.end_time)}</p>
+        )}
         {listing.buy_it_now_price && auction && <p className="text-sm text-muted-foreground">Buy now: {formatCAD(listing.buy_it_now_price)}</p>}
       </div>
 
       {!live ? (
-        <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
-          {listing.status === "sold" ? `Sold${listing.sold_price ? ` for ${formatCAD(listing.sold_price)}` : ""}.` : "This listing is no longer open for bids."}
-        </p>
+        user && listing.status === "sold" && String(listing.winner_id) === String(user._id) ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+            <p className="font-semibold text-success">You won!</p>
+            <p className="text-sm">You won this for {formatCAD(listing.sold_price)}. Message the seller to arrange the exchange.</p>
+            <Link href="/messages" className="text-sm font-medium text-primary hover:underline">Go to messages</Link>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+            {listing.status === "sold" ? `Sold${listing.sold_price ? ` for ${formatCAD(listing.sold_price)}` : ""}.` : "This listing is no longer open for bids."}
+          </p>
+        )
       ) : user === undefined ? (
         <div className="h-11" aria-hidden />
       ) : !user ? (
@@ -264,8 +285,18 @@ export function BidPanel({ listing }) {
                     className="tabular pl-7"
                   />
                 </div>
-                <Button type="submit" size="lg" disabled={busy === "bid"}>{busy === "bid" ? "Bidding…" : "Place bid"}</Button>
+                <Button type="submit" size="lg" disabled={busy === "bid" || confirmBid !== null}>{busy === "bid" ? "Bidding…" : "Place bid"}</Button>
               </div>
+              {confirmBid !== null && (
+                <div role="alertdialog" aria-labelledby="confirm-bid-text" className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+                  <p id="confirm-bid-text" className="text-sm font-medium">Are you sure you want to bid {formatCAD(confirmBid)}?</p>
+                  <p className="text-xs text-muted-foreground">Bids can't be taken back. If you win, you agree to buy at the final price.</p>
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={submitBid}>Yes, place bid</Button>
+                    <Button type="button" variant="ghost" onClick={() => setConfirmBid(null)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Enter {formatCAD(min)} or more. We bid for you, only as much as needed.</p>
               {noticeEl}
             </form>
