@@ -1,3 +1,2 @@
 # Q002 — Cloudinary / SendGrid accounts
-Status: **open** (28 Sep 2026: none available). Build env-driven with mock fallback; switch when keys arrive.
-Also needed: sender domain for SPF/DKIM.
+Status: **assigned (26 Oct 2026, user): the team sets up the accounts.** Until keys arrive the code stays env-driven with mock/log fallbacks. Also needed: sender domain for SPF/DKIM. SMS, CAPTCHA and push providers: Q011.

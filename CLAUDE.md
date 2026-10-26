@@ -17,6 +17,7 @@ what outranks what), then `docs/ACTION-PLAN.md` for current status.
 | `web/` | Next.js 16 on :3100: public pages (`/`, `/auctions`, `/auctions/[id]`, `/users/[id]`, sitemap, robots) plus `/verify-email` and `/messages`; everything else falls back to CRA |
 | `frontend/` | React 19 CRA via craco — the not-yet-ported routes (login, dashboard, sell, admin) on :3101 behind `web` |
 | `docker-compose.yml`, `*/Dockerfile`, `.env.example` | container setup — see `docs/DEPLOY.md` |
+| `docs/source/` | client's own feature list (`BIDCA.txt`) — top source, never edited; restated in `docs/srs/` |
 | `memory/PRD.md` | Emergent PRD — rank 6, superseded by `docs/srs/` |
 | `docs/` | governance set — see `AGENTS.md` |
 

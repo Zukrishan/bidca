@@ -189,7 +189,20 @@ Runs every 30s in the API process (idempotent):
 - Closes due auctions (`auction`/`auction_bin`, status `active`, `end_time <= now`) via transient `closing` → `sold` (reserve met, has winner) or `unsold`.
 - On close: creates the transaction (`pending_payment`) for sold items, notifies winner and seller, emails both, emits `auction_ended`.
 
+## Planned changes — client source (26 Oct 2026, not built)
+`docs/source/BIDCA.txt` changes parts of this contract. Everything above still describes the built
+API; each change below gets a D-number and a changelog entry when it is built (Phase 9).
+- **Done in v1.5:** shipping removed, `open` status, Best Offer fixed-price only, 12 h lockout, outbid email, `auction_lost` (D13–D16).
+- **Removals/renames (breaking):** the rest of the transaction lifecycle `open → completed | disputed | cancelled` (FR-14, FR-24).
+- **Changed:** `POST /transactions/{id}/feedback` only after `completed`, ratings shown as green/yellow/red (FR-25); `listing_type` gains `private` (FR-31) — private listings never appear in public lists, search, featured, ending-soon or the sitemap.
+- **New:** register fields (phone, age 19+ confirmation, Terms acceptance, CAPTCHA token, optional picture); phone verification; transaction complete / dispute (with proof) / cancel-dispute and an admin dispute queue; listing drafts and category-specific fields; private-listing invites (user or link); seller cancel; profile fields (display name, exchange method, tiers) and delete account; outbid email.
+
 ## Changelog
+- **v1.5 (26 Oct 2026)** — Phase 9b, client source (`feature/p9b-quick-fixes`, PR #17):
+  - D13 No money (NFR-07): `shipping_cost`, `shipping_from` removed from `POST /listings` (sent values are ignored) and from listing responses; `free_shipping` filter removed (ignored). New transactions have status `open` (was `pending_payment`).
+  - D14 Best Offer is fixed-price only: `POST /listings/{id}/best-offer` → 400 for `auction`/`auction_bin`; `accepts_best_offer` is stored `true` only for `fixed_price`.
+  - D15 Login lockout: 429 after 5 failures now lasts 12 h (`LOGIN_LOCKOUT_HOURS`).
+  - D16 Notifications: outbid also emails the outbid bidder; new type `auction_lost` to every non-winning bidder when an auction closes or is bought; Buy Now / accepted offer email both sides.
 - **v1.4 (8 Oct 2026)** — bug fixes / additive (`feature/p8-backlog`): malformed ids → 404 on watch, report, notification read and admin updates; `POST /listings/{id}/watch` 404 for unknown listings; best offer 400 when the listing isn't active or doesn't accept offers; snipe 400 below the minimum next bid; `PUT /admin/listings/{id}` and `/admin/users/{id}` 200 when unchanged; `min_price`/`max_price` use `buy_it_now_price` for `fixed_price`; saved searches accept optional `city`, `listing_type`.
 - **v1.3 (8 Oct 2026)** — FR-04 / FR-13 / FR-20, additive (`feature/p7-features`):
   - D10 Email verification: users have `email_verified` (missing = false). `POST /auth/verify-email` `{token}` (public) → 200 `{message}` / 400 `Invalid or expired verification link` (single use, 24h). `POST /auth/resend-verification` (user) → 200 / 400 `Email already verified` / 429 (60s). `/auth/me`, login and register return `email_verified`.
