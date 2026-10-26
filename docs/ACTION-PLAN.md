@@ -36,7 +36,7 @@ Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features ex
 | A13 | Q004, Q006–Q015 | user | **answered / defaulted 26 Oct**: hosting DigitalOcean; team owns accounts + legal text; provisional defaults for the rest (ASK-NOTES). Show the defaults to the client; changes become new decisions |
 | A16 | Team: SendGrid, Cloudinary, Twilio, Turnstile accounts; sender domain; DigitalOcean Droplet + Managed MongoDB | team | open |
 | A17 | Team: Terms of Service, Privacy Policy, How It Works, About Us text; vehicle checklist content (client) | team / client | open |
-| A14 | Phase 9b quick fixes (R30–R37) — none wait on questions | integrator | open |
+| A14 | Phase 9b quick fixes (R30–R37) | integrator → user | **built** — PR #17, 86/86 tests; awaiting review and a browser check |
 | A15 | Hold the Phase 5 deploy until 9b–9d are built (the built app still says "Win & Pay" and has no transaction flow) | user | open |
 
 ## Backend backlog (found during the v1 contract freeze, 8 Oct 2026)

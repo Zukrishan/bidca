@@ -21,15 +21,16 @@ Tick only when the named test passes. IDs map to `docs/srs/02-functional.md`.
 - [x] R23 FR-13 saved-search alerts (`tests/test_search_alerts.py`)
 
 ## Client source update (`docs/source/BIDCA.txt`, 26 Oct 2026) — Phase 9
+R30–R37: `tests/test_client_9b.py` passing on `feature/p9b-quick-fixes` (26 Oct 2026, 86/86); web parts (R33, R34, R35 "You won!") build but are not yet browser-tested.
 Tests are named when each item is built. Q-numbers point to the provisional default each item uses.
-- [ ] R30 (FR-14, NFR-07) No money anywhere: no `pending_payment` status, no shipping fields/filter, no "pay"/escrow copy; `check-seo` copy check extended to the CRA pages
-- [ ] R31 (FR-02) 5 failed logins → 12 h lockout
-- [ ] R32 (FR-07) One search bar on the home page; "newly added" section shows all new active listings; bid-count "Featured" renamed "Popular" (Q004)
-- [ ] R33 (FR-08) Bid confirmation step before a bid is sent
-- [ ] R34 (NFR-06) All user-facing times in Pacific time and labelled
-- [ ] R35 (FR-11) Every bidder told "You won!" / "you didn't win" at close; winner and seller emailed immediately (R4 covers the winner/seller part)
-- [ ] R36 (FR-32) Outbid alert by email as well as in-app (SMS/push: Q011)
-- [ ] R37 (FR-12, FR-28) Best Offer refused on auctions; no way to change price once bidding started
+- [x] R30 (FR-14, NFR-07) No money anywhere: no `pending_payment` status, no shipping fields/filter, no "pay"/escrow copy; `check-seo` copy check extended to the CRA pages
+- [x] R31 (FR-02) 5 failed logins → 12 h lockout
+- [x] R32 (FR-07) One search bar on the home page; "newly added" section shows all new active listings; bid-count "Featured" renamed "Popular" (Q004)
+- [x] R33 (FR-08) Bid confirmation step before a bid is sent
+- [x] R34 (NFR-06) All user-facing times in Pacific time and labelled
+- [x] R35 (FR-11) Every bidder told "You won!" / "you didn't win" at close; winner and seller emailed immediately (R4 covers the winner/seller part)
+- [x] R36 (FR-32) Outbid alert by email as well as in-app (SMS/push: Q011)
+- [x] R37 (FR-12, FR-28) Best Offer refused on auctions; no way to change price once bidding started
 - [ ] R38 (FR-23) User page tabs Selling / Current Bids / Successfully Completed; won items in Current Bids with Message (closes A6)
 - [ ] R39 (FR-24) Transaction page: buyer + seller only; order summary; Complete only when both press it
 - [ ] R40 (FR-24) Dispute needs proof upload, blocks Complete; only the opener can cancel; admin dispute queue

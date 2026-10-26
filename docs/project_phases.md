@@ -11,7 +11,7 @@ Generated **28 Sep 2026**. Scope `docs/srs/`, interface `docs/API_CONTRACT.md`, 
 | 3 | Design phase — simple UI via Stitch + OpenDesign, proposals in `docs/design/` | parallel with 2 | client sign-off (Q003) | proposal 1 (Stitch) — PR #7, **awaiting client sign-off (Q003)**; OpenDesign not connected |
 | 4 | Next.js port of public routes on :3100 (SSR/ISR, metadata, JSON-LD); contract frozen first | sequential | R22 | built ahead of Q003 at user request — `feature/p4-nextjs-public`, R22 green; contract v1 frozen (PR #8) |
 | 5 | Deploy — **DigitalOcean** (Q006, 26 Oct 2026) | sequential | smoke test on target | **ready, not deployed**: compose + Dockerfiles + `docs/DEPLOY.md`; deploy after Phase 9b–9d; B10 fixed on `feature/p6-security-hardening` |
-| 9 | Client source update (`docs/source/BIDCA.txt`) — see below | sequential, one PR per step | R30–R53 for its step | 9a done (26 Oct 2026); rest not started |
+| 9 | Client source update (`docs/source/BIDCA.txt`) — see below | sequential, one PR per step | R30–R53 for its step | 9a done; 9b built — PR #17 (26 Oct 2026) |
 
 ## Phase 9 — client source update (added 26 Oct 2026)
 Each step is its own branch + PR with tests; contract changes get a D-number. Deploy (Phase 5)
