@@ -1,4 +1,5 @@
 > Imported from `origin/v10:DOCUMENTATION.md` (last updated 3 Apr 2026). Rank 6 — describes the prototype, not a spec. Endpoint names here may drift; `docs/API_CONTRACT.md` wins.
+> **26 Oct 2026:** the client source `docs/source/BIDCA.txt` changes several things described below — 12 h login lockout (not 15 min), phone-based verified badge, no shipping, no payment of any kind, ratings only after both sides complete. See `docs/srs/02-functional.md`; rewrite this guide when Phase 9 ships.
 
 # BidCa.ca — Platform Documentation
 

@@ -1,0 +1,211 @@
+BIDCA
+
+First 3 months free with only 30 listing per month
+
+Creating Profile
+
+	- Dropdown Box with the cities of BC example - Richmond, Surrey, Abbortsford, Langley, etc.. etc..
+        - Email verfication
+	- Phone Number verification (Only one account per phone number)
+	- Age 19+ only.
+	- Profile picture (Optional)
+	- TERMS AND Conditions.
+
+After creating explain about rules and regulations, specifically how P2P auction works.
+
+Sign in
+	- Failed 5 times (account locked for 12 hours)
+	- Forget Password (verify with email only not phone)
+CAPTCHA on signup/login — prevents bot account creation, important since you already limit to one account per phone but bots can still hammer the form
+Email verification link expiry — links shouldn't stay valid forever
+Session timeout — auto-logout after inactivity, especially on shared/public devices
+
+
+Main Page -
+	- Remove one search bars there 's two.
+
+User Profile-
+
+Profile pic (or default avatar)
+Full name (or display name, if you want to let people use a handle instead of real name for privacy)
+City/region in BC
+Member since (account creation date)
+Verified badge (phone verified ✓)(Only after two successful bidding)
+Saved Bids
+Completed BIDs (Buyer and as a seller)
+Rating/reviews (once you build that feature) (thumbs up in green for successful biddings)(Thumbsdown in red to Failure to complete transaction) (Yellow thumbs for Disputes) - Should be Public
+One rating per completed transaction, per user (can't spam-rate someone repeatedly) (thumbs up in green for successful sell bid and buy bid)
+Comments from buyers - Should be public
+Active listings (for sellers)
+Bid history (for buyers, or keep this private — see below)
+Badges/tiers — e.g. "Top Seller," "Power Bidder" — auto-awarded based on transaction count + rating ratio, gamifies trust
+Preferred exchange method — since there's no payment integration, letting sellers state upfront "Cash on pickup," "E-transfer," "Meet in public location" sets expectations before contact
+Private info (only visible to the account owner):
+Account settings (delete account, etc.)
+
+Main Page -
+
+Terms of Service, Privacy Policy, How It Works — links should be prominent, not buried, especially since your "How It Works" copy needs to be accurate about the no-payment/P2P model - Footer
+Ai Chat bot (Later)
+Featured on top listing (Extra payment not free)
+smart search — "cheap laptop" also returns "budget notebook," "affordable MacBook" not just exact keyword match.(Later)
+Main page should also include now added items every time customer add a product. doesn't have to be selected products, all items. 
+Premium members - Their listing should be on top (This is after couple of momths ) 
+Image search (optional)
+Scam-listing detection(Later)
+No bid single priced product at the bottom - Least priority
+
+lsiting a Product
+
+Drag-and-drop reordering
+auto-check for inappropriate/prohibited content before the listing goes live (flagged earlier as a priority)(later)
+remove Shipping cost
+Category Subcategory dependency — subcategory dropdown should populate based on category selected (disabled until category chosen), not just sit there independently
+Character counter on Description — helps sellers know if they're too brief or hitting a limit(later)
+Required field validation — Title, Category, Description, Condition, City marked with *, so Continue should be disabled until all are filled
+"AI-assisted description button — small "✨ Help me write this" button next to Description, using the photos from step 1 to draft a starting description —
+Auto-suggested category — pre-fill category/subcategory based on AI analysis of uploaded photos, seller just confirms." - Later
+Duplicate listing detection - (Later)
+Save as draft
+Category-specific fields — some categories benefit from extra fields (e.g Vehicles → year/make/model/mileage; Electronics → brand/model).
+product listing and Picture matching detection
+Unethical product finding function
+Price suggestion
+Bid confirmation step — a simple "Are you sure you want to bid $X?" prevents accidental/fat-finger bids, which matter a lot with no payment layer to undo mistakes
+If they Consercatively cancel the product they are sellingfrom the page mid way while customers are bidding, their account will be suspended until further notice (For a coupledays based on their history of Transacations)
+
+
+User Page Update
+Current problem
+
+The User page currently only shows "My Bids." This needs to be expanded into proper tabs/sections.
+
+New User Page Structure
+
+The User page should have these sections:
+
+Selling — items the user has listed for sale
+Current Bids — auctions the user is actively bidding on (not yet ended)
+Successfully Completed — transactions that finished successfully, on both the buy and sell side
+When Someone Wins a Bid
+
+1. Show it on the Current Bids page
+As soon as an auction ends and someone wins, that specific item should appear (or move) into the winner's "Current Bids" section, with a Message button so they can start the Transaction Chat with the seller right away.
+
+2. Notify both sides by email — immediately
+
+Email the buyer: "You won the bid for [item name]."
+Email the seller: "Your item [item name] has a winning bidder."
+These emails should be sent right away, not delayed — this is a time-sensitive event.
+
+3. If the buyer doesn't respond within 24 hours
+
+If the winning buyer does not open the chat / respond within 24 hours of winning, their account should be temporarily locked for a few hours.
+This non-response should also negatively affect their rating.
+(Developer note: this needs a background job that checks for "won but no response" transactions and triggers the lock + rating penalty automatically after the 24-hour window.)
+Seller Pricing Rule
+It is the seller's responsibility to set a fair/accurate starting price when creating the listing.
+Once an auction is open (bidding has started), the seller cannot negotiate or change the price. The price is locked for the duration of that auction.
+
+Transaction Page (After a Bid is Won)
+
+
+When it appears: As soon as a buyer wins a bid, create a new page for that specific deal. Only the buyer and seller involved can see it.
+What's on the page
+Chat box — buyer and seller can message each other, only about this specific item/deal.
+Order summary — item name, photo, agreed price, and how they agreed to exchange it (cash, e-transfer, meet in person — whatever the seller picked on their profile).
+"Complete Transaction" button
+This button does nothing until both people press it.
+Buyer presses it when they're happy the deal is done. Seller presses it too. Only when BOTH have pressed it, the transaction is marked "Completed."
+One person pressing it alone should not complete the transaction.
+"Dispute" button
+Either person can press this anytime if something goes wrong.
+When pressed, they must upload proof — screenshots of the chat, photos of the item, anything relevant. Don't let them submit a dispute with no proof attached.
+Once opened, the transaction is marked "Disputed" and the "Complete" button should stop working until the dispute is closed.
+"Cancel Dispute" button
+Only the person who opened the dispute can press this.
+Use this if they sort the issue out directly with the other person.
+Once cancelled, the transaction goes back to normal and "Complete" works again.
+Important — no money involved
+
+We do not touch, hold, refund, or move any money, ever. Our only job during a dispute is to look at the proof both sides send us and make a decision (for example: giving someone a bad rating, warning them, or banning them if they're clearly scamming people). We are not a bank, not an escrow service, not a payment processor. Do not build anything that suggests otherwise.
+
+Automatic emails
+While a transaction is still open (not completed, not cancelled, not disputed), send both people a reminder email every few hours: "Your transaction for [item name] is still open. Please coordinate with [other person's name] to complete it."
+Stop sending these emails the moment the transaction becomes Completed, Cancelled, or Disputed.
+After it's completed
+As soon as both people press "Complete," immediately ask both of them to leave a rating and a comment about the other person.
+This is the same rating system from the User Profile page: 👍 green (good), 🟡 yellow (there was a problem but it got sorted), 👎 red (deal fell through).
+Each person can only rate the other once per transaction. No repeat rating, no spam.
+
+
+
+Vehicle Inspection Form (Vehicles category only)
+
+Purpose: Since there's no payment protection or platform inspection on Bidca, buyers need a way to protect themselves when meeting a seller to view a vehicle in person. This is a free checklist for the buyer, not something the seller fills out.
+
+Where it appears
+Only shown on listings where Category = Vehicles
+Should appear as a clear button/link on the listing page, e.g. "📋 Download Vehicle Inspection Checklist"
+Also worth surfacing it in the Transaction Chat page (once a bid is won on a vehicle listing) as a reminder before the buyer goes to view/collect the car
+What it does
+Generates a printable PDF the buyer can bring with them when inspecting the vehicle in person
+Content of the checklist itself will be provided separately (you mentioned you'll create this once the site is built) — for now, the developer just needs to build the feature to display/download it, not the checklist content
+Functional requirements for the developer
+A static or dynamically-generated PDF template that gets shown/downloaded when the buyer clicks the checklist button on a Vehicles listing
+Should work the same way for every vehicle listing (not customized per-listing, unless you want VIN/listing info auto-filled in later — flag if you want that)
+No login required to view/download it (keep friction low — anyone considering the vehicle should be able to grab it)
+Category-gated: only show this button when category == "Vehicles" — should not appear on any other category page
+Why this matters (for context, not build instructions)
+
+Since Bidca has no payment protection and no in-person verification, this checklist is one of your only real buyer-safety tools for a high-value, high-risk category like vehicles. Worth treating it as a standard, required part of the Vehicles listing template — not optional or hidden.
+
+Only for vehicle - 
+What it should ask (basic version — you can refine content later, same as the buyer checklist)
+Accident history (yes/no + brief description if yes)
+Known mechanical issues (yes/no + description)
+Number of previous owners
+Is there a valid BC out-of-province/regular inspection or safety certificate? (upload optional)
+Odometer reading confirmation
+Any liens or loans outstanding on the vehicle (important — buyer should know if the car isn't fully owned free and clear)
+
+
+Private Listings (Invite-Only Auctions)
+
+Purpose: Let a seller create a listing that's only visible and biddable by a specific list of people they choose — not searchable, not shown on the homepage/browse pages, not open to the general public.
+
+How it works
+When creating a listing, seller picks "Private Listing" instead of the normal public option (this becomes a new choice alongside Auction / Auction + BIN / Fixed Price)
+Seller invites specific buyers, either by:
+Entering their Bidca username/email/phone (if they're already registered), or
+Generating a private invite link they can send directly (e.g. via text/WhatsApp) to people who may not be on Bidca yet
+Only invited people can view the listing or place a bid on it
+The listing does not appear in: homepage, search results, category browsing, "Popular"/"Ending Soon" sections — it's fully hidden from everyone else
+Everything else works the same as a normal auction: bidding, winning, transaction chat, ratings, disputes.
+For this specific 
+Important  - This Page do not have the rating function since it's private
+
+
+
+Outbid notifications — instant alert (push/email/SMS) when someone outbids you, so users stay engaged
+When customer Won the Bid
+
+
+Terms of Service, Privacy Policy pages — actual content, not just footer links
+
+Cookie consent banner — if you use any tracking/analytics(Optional with Cusotmers apporval - later this is)
+
+About Us — who's behind Bidca, builds trust for a new platform
+
+Timezone clarity — auctions ending "in 2 hours" should clearly use BC/Pacific time, especially since users may browse from different timezones
+
+
+Auction end confirmation — clear "You won!" / "Auction ended, you didn't win" messaging, not just a silent status change
+
+
+
+
+
+
+
+	

@@ -18,3 +18,7 @@
 | 8 Oct 2026 | FR-13 alerts | Trigger when a listing becomes active; plain-text match on title/description + category + price; once per user per listing; in-app + email; per-search on/off |
 | 8 Oct 2026 | FR-20 messaging | One thread per transaction, buyer + seller only, plain text, rate-limited; one unread notification/email per thread |
 | 8 Oct 2026 | Dev email bodies | Logged only with `EMAIL_LOG_BODIES=1` and never in production (bodies carry tokens) |
+| 26 Oct 2026 | Client feature list `docs/source/BIDCA.txt` vs existing docs | User: "source docs is the main … update other docs per this" — source outranks all docs; conflicts resolved in its favour (contradiction 003); unclear points → Q007–Q015; BC postal code and admin approval kept (source silent) |
+| 26 Oct 2026 | Hosting (Q006) | User: **DigitalOcean** — default: Droplet running the compose stack + DO Managed MongoDB |
+| 26 Oct 2026 | Accounts (Q002, Q011) and legal text (Q014) | User: the team sets up SendGrid, Cloudinary, SMS and CAPTCHA, and writes Terms / Privacy / About. Build defaults: Twilio Verify, Cloudflare Turnstile, no push |
+| 26 Oct 2026 | Q004, Q007–Q010, Q012, Q013, Q015 | User: "take possible decisions for them and log with docs … if there is change we will do it" — provisional defaults chosen by us, recorded in each question file and in `docs/srs/02-functional.md` (Settings table). Client changes come in as new rows here |

@@ -189,6 +189,13 @@ Runs every 30s in the API process (idempotent):
 - Closes due auctions (`auction`/`auction_bin`, status `active`, `end_time <= now`) via transient `closing` → `sold` (reserve met, has winner) or `unsold`.
 - On close: creates the transaction (`pending_payment`) for sold items, notifies winner and seller, emails both, emits `auction_ended`.
 
+## Planned changes — client source (26 Oct 2026, not built)
+`docs/source/BIDCA.txt` changes parts of this contract. Everything above still describes the built
+API; each change below gets a D-number and a changelog entry when it is built (Phase 9).
+- **Removals/renames (breaking):** `shipping_cost`, `shipping_from` and the `free_shipping` filter go (FR-05); transaction status `pending_payment` is replaced by a lifecycle `open → completed | disputed | cancelled` (FR-14, FR-24); Best Offer 400 on auctions (FR-12).
+- **Changed:** login lockout 15 min → 12 h (FR-02); `POST /transactions/{id}/feedback` only after `completed`, ratings shown as green/yellow/red (FR-25); `listing_type` gains `private` (FR-31) — private listings never appear in public lists, search, featured, ending-soon or the sitemap.
+- **New:** register fields (phone, age 19+ confirmation, Terms acceptance, CAPTCHA token, optional picture); phone verification; transaction complete / dispute (with proof) / cancel-dispute and an admin dispute queue; listing drafts and category-specific fields; private-listing invites (user or link); seller cancel; profile fields (display name, exchange method, tiers) and delete account; outbid email.
+
 ## Changelog
 - **v1.4 (8 Oct 2026)** — bug fixes / additive (`feature/p8-backlog`): malformed ids → 404 on watch, report, notification read and admin updates; `POST /listings/{id}/watch` 404 for unknown listings; best offer 400 when the listing isn't active or doesn't accept offers; snipe 400 below the minimum next bid; `PUT /admin/listings/{id}` and `/admin/users/{id}` 200 when unchanged; `min_price`/`max_price` use `buy_it_now_price` for `fixed_price`; saved searches accept optional `city`, `listing_type`.
 - **v1.3 (8 Oct 2026)** — FR-04 / FR-13 / FR-20, additive (`feature/p7-features`):

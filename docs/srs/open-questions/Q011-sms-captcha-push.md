@@ -1,0 +1,2 @@
+# Q011 — SMS, CAPTCHA and push providers
+Status: **assigned (26 Oct 2026, user): the team sets up the accounts.** Default choice for the build: Twilio Verify for phone codes (and SMS outbid alerts), Cloudflare Turnstile for CAPTCHA, no push notifications for launch (email + in-app only). Both are env-driven: with no keys, dev accepts a fixed test code and skips CAPTCHA; production refuses to start without them.

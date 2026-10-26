@@ -19,3 +19,30 @@ Tick only when the named test passes. IDs map to `docs/srs/02-functional.md`.
 ## Later
 - [x] R20 FR-04 email verification (`tests/test_email_verification.py`) · [x] R21 FR-20 messaging (`tests/test_messages.py`) · [x] R22 NFR-01 Next.js SEO port — `web/scripts/check-seo.mjs` all pass (dev + `next start`, 8 Oct 2026, `feature/p4-nextjs-public`)
 - [x] R23 FR-13 saved-search alerts (`tests/test_search_alerts.py`)
+
+## Client source update (`docs/source/BIDCA.txt`, 26 Oct 2026) — Phase 9
+Tests are named when each item is built. Q-numbers point to the provisional default each item uses.
+- [ ] R30 (FR-14, NFR-07) No money anywhere: no `pending_payment` status, no shipping fields/filter, no "pay"/escrow copy; `check-seo` copy check extended to the CRA pages
+- [ ] R31 (FR-02) 5 failed logins → 12 h lockout
+- [ ] R32 (FR-07) One search bar on the home page; "newly added" section shows all new active listings; bid-count "Featured" renamed "Popular" (Q004)
+- [ ] R33 (FR-08) Bid confirmation step before a bid is sent
+- [ ] R34 (NFR-06) All user-facing times in Pacific time and labelled
+- [ ] R35 (FR-11) Every bidder told "You won!" / "you didn't win" at close; winner and seller emailed immediately (R4 covers the winner/seller part)
+- [ ] R36 (FR-32) Outbid alert by email as well as in-app (SMS/push: Q011)
+- [ ] R37 (FR-12, FR-28) Best Offer refused on auctions; no way to change price once bidding started
+- [ ] R38 (FR-23) User page tabs Selling / Current Bids / Successfully Completed; won items in Current Bids with Message (closes A6)
+- [ ] R39 (FR-24) Transaction page: buyer + seller only; order summary; Complete only when both press it
+- [ ] R40 (FR-24) Dispute needs proof upload, blocks Complete; only the opener can cancel; admin dispute queue
+- [ ] R41 (FR-25) Rating prompt after completion only; green/yellow/red; one per user per transaction; public
+- [ ] R42 (FR-26) 24 h no-response job: lock + rating effect, idempotent (Q010, Q013)
+- [ ] R43 (FR-27) Reminder emails while open, stop on Completed/Cancelled/Disputed (Q010)
+- [ ] R44 (FR-01) Signup: city dropdown, phone verification (one account per phone), 19+, T&C, CAPTCHA (Q011, Q014)
+- [ ] R45 (FR-02, NFR-03) CAPTCHA on login; inactivity logout (Q010)
+- [ ] R46 (FR-21) Rules / how P2P works screen after signup
+- [ ] R47 (FR-22) Public profile fields, phone-verified badge after 2 completed transactions, tiers, exchange method, delete account (Q009, Q013)
+- [ ] R48 (FR-05) Listing form: required fields, dependent subcategory, drag-and-drop images, drafts, category-specific fields
+- [ ] R49 (FR-29) Seller cancel during bidding → suspension (Q010, Q012)
+- [ ] R50 (FR-30) Vehicles-only inspection checklist download, no login (Q008)
+- [ ] R51 (FR-31) Private listings: invitees only, hidden everywhere public, not in sitemap (Q007)
+- [ ] R52 (FR-33) Terms, Privacy, How It Works, About pages linked in the footer (Q014)
+- [ ] R53 (FR-34) 30 listings per user per month (Q015)

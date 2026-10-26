@@ -1,6 +1,13 @@
-# ACTION-PLAN.md — current status (8 Oct 2026)
+# ACTION-PLAN.md — current status (26 Oct 2026)
 
-## Where it stands
+## Update 26 Oct 2026 — client source
+The client's feature list `docs/source/BIDCA.txt` is now the top source (`AGENTS.md`). The SRS was
+rewritten to match it (FR-21–FR-35, NFR-06/07), conflicts with what was built are logged and
+resolved in its favour (`docs/srs/contradictions/003`), and unclear points are Q007–Q015 — all answered or given provisional defaults the same day (hosting: DigitalOcean). Built
+code is unchanged; the work is planned as Phase 9 (`docs/project_phases.md`, R30–R53).
+Nothing is merged yet: PRs #4–#15 are still open and stacked.
+
+## Where it stood (8 Oct 2026)
 Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features exist (see
 `docs/srs/02-functional.md`), but it is **not launchable**:
 
@@ -19,12 +26,18 @@ Emergent-generated prototype on `main` @ `9ce8c71`. Most user-facing features ex
 | A3 | Client answers Q001–Q006 | user | open |
 | A4 | Freeze API_CONTRACT v1 | integrator | **done** 8 Oct (docs/contract-v1), with D8/D9 fixes on `feature/p4-nextjs-public` |
 | A5 | Merge docs PR, then Phase 1 PR | user | open |
-| A6 | Frontend filters on `ended` (AdminPanel, SellerDashboard) but closed auctions are `sold`/`unsold` — tabs show nothing | Phase 4 | open |
+| A6 | Frontend filters on `ended` (AdminPanel, SellerDashboard) but closed auctions are `sold`/`unsold` — tabs show nothing | Phase 9c (FR-23 replaces these tabs) | open |
 | A7 | Phase 2 router split (`feature/p2-router-split`, PR #6, stacked on #5) | integrator → user | **built**; route table + OpenAPI identical, live API results identical, test_p0 11/11 |
 | A8 | Phase 3 design proposal 1 (`docs/design/2026-10-07-stitch-simple/`) | client | awaiting sign-off (Q003); OpenDesign alternative pending (MCP not connecting) |
 | A9 | Phase 4 Next.js port of public routes (`feature/p4-nextjs-public`, stacked on #6) | integrator → user | **built**, R22 green; started before Q003 sign-off at user request (ASK-NOTES 8 Oct) — design is a token swap |
-| A10 | Phase 5 deploy | user | **ready, not deployed** — choose hosting (Q006), then `docs/DEPLOY.md` (B10 fixed) |
+| A10 | Phase 5 deploy | user | **ready, not deployed** — hosting is DigitalOcean (Q006, 26 Oct); `docs/DEPLOY.md` (on `feature/p4-nextjs-public`) still says "blocked on Q006" and gets a DigitalOcean section when deploy starts |
 | A11 | Commit a `frontend/yarn.lock` (CRA has no lockfile; Docker builds are not reproducible) | integrator | open |
+| A12 | Align docs to `docs/source/BIDCA.txt` (Phase 9a) | integrator | **done** 26 Oct on `docs/client-update` |
+| A13 | Q004, Q006–Q015 | user | **answered / defaulted 26 Oct**: hosting DigitalOcean; team owns accounts + legal text; provisional defaults for the rest (ASK-NOTES). Show the defaults to the client; changes become new decisions |
+| A16 | Team: SendGrid, Cloudinary, Twilio, Turnstile accounts; sender domain; DigitalOcean Droplet + Managed MongoDB | team | open |
+| A17 | Team: Terms of Service, Privacy Policy, How It Works, About Us text; vehicle checklist content (client) | team / client | open |
+| A14 | Phase 9b quick fixes (R30–R37) — none wait on questions | integrator | open |
+| A15 | Hold the Phase 5 deploy until 9b–9d are built (the built app still says "Win & Pay" and has no transaction flow) | user | open |
 
 ## Backend backlog (found during the v1 contract freeze, 8 Oct 2026)
 Not fixed yet; each needs its own PR with a test. Contract changes need a D-number.
