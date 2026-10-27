@@ -105,10 +105,10 @@ async def test_losing_bid_keeps_leader_and_records_losers_max():
     assert resp.json()["is_winning"] is False
     from bson import ObjectId
     listing = await db.listings.find_one({"_id": ObjectId(lid)})
-    assert listing["highest_bidder_name"] == "Alice Leader"
+    assert listing["highest_bidder_name"] == "Alice L."  # display name, full name private (9d, FR-22)
     assert str(listing["highest_bidder_id"]) == a_id
     assert listing["highest_bidder_max_bid"] == 100.0
-    bob_bid = await db.bids.find_one({"listing_id": lid, "bidder_name": "Bob Loser"})
+    bob_bid = await db.bids.find_one({"listing_id": lid, "bidder_name": "Bob L."})
     assert bob_bid["amount"] == 50.0 and bob_bid["max_bid"] == 50.0
 
 

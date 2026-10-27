@@ -60,6 +60,9 @@ async def user_from_access_token(token: str) -> dict:
     blocked = account_block_reason(user)
     if blocked:
         raise HTTPException(status_code=403, detail=blocked)
+    # Deleted accounts and idle sessions (FR-02 inactivity logout) — see app/accounts.py
+    from app.accounts import check_session_activity
+    await check_session_activity(user)
     user["_id"] = str(user["_id"])
     user.pop("password_hash", None)
     return user

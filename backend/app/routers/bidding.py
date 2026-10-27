@@ -8,6 +8,7 @@ from app.constants import get_bid_increment
 from app.models import BidCreate
 from app.helpers import create_notification, notify_outbid
 from app.realtime import broadcast_bid_update
+from app.accounts import public_name
 
 router = APIRouter()
 
@@ -102,7 +103,7 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
     bid_doc = {
         "listing_id": listing_id,
         "bidder_id": user["_id"],
-        "bidder_name": user["full_name"],
+        "bidder_name": public_name(user),
         # A losing bid is recorded at the bidder's own maximum; a winning one at the new price
         "amount": new_current_bid if str(new_highest_bidder) == user["_id"] else bid.max_bid,
         "max_bid": bid.max_bid,
@@ -120,7 +121,7 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
                 "current_bid": new_current_bid,
                 "bid_increment": new_bid_increment,
                 "highest_bidder_id": new_highest_bidder,
-                "highest_bidder_name": user["full_name"] if str(new_highest_bidder) == user["_id"] else listing.get("highest_bidder_name"),
+                "highest_bidder_name": public_name(user) if str(new_highest_bidder) == user["_id"] else listing.get("highest_bidder_name"),
                 "highest_bidder_max_bid": new_max_bid,
                 "reserve_met": reserve_met
             },
@@ -138,7 +139,7 @@ async def place_bid(listing_id: str, bid: BidCreate, user: dict = Depends(requir
         "bid_count": listing["bid_count"] + 1,
         "bid_increment": new_bid_increment,
         "reserve_met": reserve_met,
-        "bidder_name": user["full_name"][:1] + "***"
+        "bidder_name": public_name(user)[:1] + "***"
     })
     
     return {

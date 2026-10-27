@@ -8,6 +8,7 @@ from app.security import get_current_user, require_verified_email
 from app.models import BestOfferCreate
 from app.helpers import create_notification
 from app.sales import complete_sale
+from app.accounts import public_name
 
 router = APIRouter()
 
@@ -36,7 +37,7 @@ async def submit_best_offer(listing_id: str, offer: BestOfferCreate, user: dict 
     offer_doc = {
         "listing_id": listing_id,
         "buyer_id": user["_id"],
-        "buyer_name": user["full_name"],
+        "buyer_name": public_name(user),
         "amount": offer.offer_amount,
         "message": offer.message,
         "status": "pending",

@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   Gavel,
   Tag,
-  Clock,
   Bell,
   Plus,
   MapPin,
@@ -107,26 +106,22 @@ export default function Dashboard() {
           <div className="bg-white border border-border p-6 mb-6" data-testid="profile-header">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
               <div className="flex items-center justify-center w-20 h-20 bg-secondary text-white font-heading font-bold text-2xl">
-                {user?.full_name?.charAt(0) || "U"}
+                {(user?.display_name || user?.full_name)?.charAt(0) || "U"}
               </div>
-              
+
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="font-heading text-2xl font-bold">{user?.full_name}</h1>
-                  {user?.verification_badge ? (
+                  <h1 className="font-heading text-2xl font-bold">{user?.display_name || user?.full_name}</h1>
+                  {/* Phone verification is the only trust mark users see (Q009) */}
+                  {user?.phone_verified ? (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-secondary text-white text-xs font-bold">
                       <ShieldCheck className="h-4 w-4" weight="fill" />
-                      Verified
-                    </span>
-                  ) : user?.verification_status === "pending" ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500 text-white text-xs font-bold">
-                      <Clock className="h-4 w-4" />
-                      Pending
+                      Phone verified
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground text-xs font-bold">
-                      Unverified
-                    </span>
+                    <Link to="/account" className="inline-flex items-center gap-1 px-2 py-1 bg-muted text-muted-foreground text-xs font-bold hover:underline">
+                      Phone not verified
+                    </Link>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -139,16 +134,6 @@ export default function Dashboard() {
               </div>
 
               <div className="flex gap-3">
-                {!user?.verification_badge && user?.verification_status !== "pending" && (
-                  <Link
-                    to="/verification"
-                    className="px-4 py-2 bg-secondary text-white font-medium hover:bg-secondary/90 transition-colors flex items-center gap-2"
-                    data-testid="get-verified-btn"
-                  >
-                    <ShieldCheck className="h-5 w-5" />
-                    Get Verified
-                  </Link>
-                )}
                 <Link
                   to="/create-listing"
                   className="px-4 py-2 bg-primary text-white font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
@@ -339,14 +324,14 @@ export default function Dashboard() {
               </div>
             </Link>
             <Link
-              to="/verification"
+              to="/account"
               className="p-6 bg-white border border-border hover:border-primary transition-colors flex items-center gap-4"
-              data-testid="verification-link"
+              data-testid="account-link"
             >
-              <ShieldCheck className="h-8 w-8 text-primary" />
+              <User className="h-8 w-8 text-primary" />
               <div>
-                <h3 className="font-medium">Verification</h3>
-                <p className="text-sm text-muted-foreground">Build trust</p>
+                <h3 className="font-medium">Account Settings</h3>
+                <p className="text-sm text-muted-foreground">Profile, phone and exchange methods</p>
               </div>
             </Link>
           </div>

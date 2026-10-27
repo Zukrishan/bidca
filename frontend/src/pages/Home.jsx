@@ -365,9 +365,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 border border-border">
               <ShieldCheck className="h-10 w-10 text-primary mb-4" weight="fill" />
-              <h3 className="font-bold text-lg mb-2">Verified Sellers</h3>
+              <h3 className="font-bold text-lg mb-2">Phone-Verified Members</h3>
               <p className="text-sm text-muted-foreground">
-                All sellers are manually verified. Look for the verified badge for extra confidence.
+                Every account is tied to one phone number. The verified badge appears after two completed deals.
               </p>
             </div>
             <div className="p-6 border border-border">

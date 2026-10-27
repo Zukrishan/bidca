@@ -8,6 +8,7 @@ export default async function sitemap() {
   const entries = [
     { url: `${SITE_URL}/` },
     { url: `${SITE_URL}/auctions` },
+    ...["/how-it-works", "/terms", "/privacy", "/about"].map((p) => ({ url: `${SITE_URL}${p}` })),
   ];
   try {
     const catalog = await apiGet("/categories", { revalidate: 3600 });

@@ -180,11 +180,12 @@ async def _execute_single_sniper(db, sb: dict) -> None:
     if listing.get("reserve_price"):
         reserve_met = new_current_bid >= listing["reserve_price"]
 
+    from app.accounts import public_name  # lazy, like the other app imports here
     now_iso = datetime.now(timezone.utc).isoformat()
     bid_doc = {
         "listing_id": listing_id,
         "bidder_id": user_id_str,
-        "bidder_name": user.get("full_name", ""),
+        "bidder_name": public_name(user),
         "amount": new_current_bid,
         "max_bid": max_bid,
         "is_auto_bid": True,
@@ -201,7 +202,7 @@ async def _execute_single_sniper(db, sb: dict) -> None:
                 "current_bid": new_current_bid,
                 "bid_increment": new_bid_increment,
                 "highest_bidder_id": new_highest_bidder,
-                "highest_bidder_name": user.get("full_name", "") if new_highest_bidder == user_id_str else listing.get("highest_bidder_name"),
+                "highest_bidder_name": public_name(user) if new_highest_bidder == user_id_str else listing.get("highest_bidder_name"),
                 "highest_bidder_max_bid": new_max_bid,
                 "reserve_met": reserve_met,
             },

@@ -33,7 +33,7 @@ export function AccountLink() {
         )}
       </a>
       <a href="/dashboard" className="inline-flex h-11 items-center px-2 text-sm font-semibold hover:underline">
-        {user.full_name?.split(" ")[0] || "Account"}
+        {user.display_name || user.full_name?.split(" ")[0] || "Account"}
       </a>
     </span>
   );

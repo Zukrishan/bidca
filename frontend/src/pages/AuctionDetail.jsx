@@ -600,11 +600,11 @@ export default function AuctionDetail() {
                     className="flex items-center gap-3 p-3 bg-muted hover:bg-muted/80 transition-colors"
                   >
                     <div className="w-12 h-12 bg-secondary text-white flex items-center justify-center font-bold text-lg">
-                      {sellerInfo.full_name?.charAt(0) || 'S'}
+                      {sellerInfo.display_name?.charAt(0) || 'S'}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{sellerInfo.full_name || listing.seller_name}</span>
+                        <span className="font-medium">{sellerInfo.display_name || listing.seller_name}</span>
                         {(listing.seller_verified || sellerInfo.verification_badge) && (
                           <ShieldCheck className="h-4 w-4 text-primary" weight="fill" />
                         )}

@@ -47,6 +47,8 @@ async def _register(client, email):
         resp = await client.post("/api/auth/register", json={
             "email": email, "password": PASSWORD, "full_name": "Vera Fy", "city": "Victoria",
             "postal_code": "V8W 1A1", "province": "British Columbia",
+            # Phase 9d sign-up fields (CAPTCHA is skipped without TURNSTILE_SECRET_KEY)
+            "phone": "250-555-0100", "age_confirmed_19_plus": True, "terms_accepted": True,
         })
     assert resp.status_code == 200, resp.text
     assert mock_send.await_count == 1

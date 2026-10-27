@@ -2,6 +2,7 @@ import { Public_Sans } from "next/font/google";
 
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { IdleLogout } from "@/components/IdleLogout";
 import { SITE_NAME, SITE_URL } from "@/lib/config";
 import "./globals.css";
 
@@ -21,6 +22,7 @@ export default function RootLayout({ children }) {
         <Header />
         <main className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6">{children}</main>
         <Footer />
+        <IdleLogout />
       </body>
     </html>
   );

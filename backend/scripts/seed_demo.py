@@ -48,22 +48,28 @@ LISTINGS = [
 def session_for(email, password, register=None):
     s = requests.Session()
     if register:
-        r = s.post(f"{API}/auth/register", json={"email": email, "password": password, **register})
+        r = s.post(f"{API}/auth/register", json={"email": email, "password": password,
+                                                  "age_confirmed_19_plus": True, "terms_accepted": True, **register})
         if r.status_code not in (200, 201, 400):
             sys.exit(f"register {email}: {r.status_code} {r.text}")
     r = s.post(f"{API}/auth/login", json={"email": email, "password": password})
     if r.status_code != 200:
         sys.exit(f"login {email}: {r.status_code} {r.text}")
+    if register:
+        s.post(f"{API}/auth/phone/verify", json={"code": "000000"})  # dev code (no Twilio keys)
     return s
 
 
 def main():
     admin = session_for(*ADMIN)
     seller = session_for("mark@demo.bidca.ca", PASSWORD,
-                         {"full_name": "Mark Thompson", "city": "Kamloops", "postal_code": "V2C 1A1"})
+                         {"full_name": "Mark Thompson", "city": "Kamloops", "postal_code": "V2C 1A1",
+                          "phone": "250-555-0101"})
     buyers = [
-        session_for("jess@demo.bidca.ca", PASSWORD, {"full_name": "Jess Nguyen", "city": "Vancouver", "postal_code": "V6B 1A1"}),
-        session_for("raj@demo.bidca.ca", PASSWORD, {"full_name": "Raj Patel", "city": "Surrey", "postal_code": "V3T 1A1"}),
+        session_for("jess@demo.bidca.ca", PASSWORD, {"full_name": "Jess Nguyen", "city": "Vancouver", "postal_code": "V6B 1A1",
+                                                     "phone": "604-555-0102"}),
+        session_for("raj@demo.bidca.ca", PASSWORD, {"full_name": "Raj Patel", "city": "Surrey", "postal_code": "V3T 1A1",
+                                                    "phone": "604-555-0103"}),
     ]
 
     # Registration now requires email confirmation before bidding/selling; skip it for demo users.

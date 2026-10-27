@@ -35,7 +35,8 @@ async def get_cloudinary_signature(
     if not (cld_cloud and cld_key and cld_secret):
         raise HTTPException(status_code=503, detail="Cloudinary is not configured")
     timestamp = int(time.time())
-    params = {"timestamp": timestamp, "folder": folder, "resource_type": resource_type}
+    # Cloudinary never signs resource_type (it is part of the upload URL), so it must not be signed here
+    params = {"timestamp": timestamp, "folder": folder}
     signature = cloudinary.utils.api_sign_request(params, cld_secret)
     return {
         "signature": signature,

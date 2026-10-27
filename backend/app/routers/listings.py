@@ -10,6 +10,7 @@ from app.security import get_current_user, get_optional_user, require_verified_e
 from app.constants import get_bid_increment, PUBLIC_LISTING_STATUSES
 from app.models import AuctionCreate
 from app.helpers import calculate_positive_percentage
+from app.accounts import public_name, verified_badge
 
 router = APIRouter()
 
@@ -51,9 +52,9 @@ async def create_listing(listing: AuctionCreate, user: dict = Depends(require_ve
         "end_time": end_time.isoformat(),
         # Seller info
         "seller_id": user["_id"],
-        "seller_name": user["full_name"],
+        "seller_name": public_name(user),  # display name; full name stays private (FR-22)
         "seller_city": user["city"],
-        "seller_verified": user.get("verification_badge", False),
+        "seller_verified": await verified_badge(user),  # phone badge, the only badge (Q009)
         "seller_rating": user.get("seller_rating", 0),
         "seller_total_ratings": user.get("total_ratings", 0),
         "seller_positive_pct": calculate_positive_percentage(user),
@@ -270,12 +271,14 @@ async def get_listing(listing_id: str, request: Request):
     seller = await db.users.find_one({"_id": ObjectId(listing["seller_id"])})
     if seller:
         listing["seller_info"] = {
-            "full_name": seller["full_name"],
+            "display_name": public_name(seller),
+            "avatar_url": seller.get("avatar_url"),
+            "exchange_methods": seller.get("exchange_methods") or [],
             "city": seller["city"],
             "seller_rating": seller.get("seller_rating", 0),
             "total_ratings": seller.get("total_ratings", 0),
             "positive_percentage": calculate_positive_percentage(seller),
-            "verification_badge": seller.get("verification_badge", False),
+            "verification_badge": await verified_badge(seller),
             "total_sales": seller.get("total_sales", 0),
             "member_since": seller.get("created_at")
         }

@@ -89,7 +89,7 @@ export default async function ListingPage({ params }) {
       availability: listing.status === "active" ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
       ...(auction && listing.end_time ? { priceValidUntil: listing.end_time.slice(0, 10) } : {}),
       url,
-      seller: { "@type": "Person", name: seller.full_name || listing.seller_name },
+      seller: { "@type": "Person", name: seller.display_name || listing.seller_name },
       areaServed: `${listing.city}, BC`,
     },
   };
@@ -198,7 +198,7 @@ export default async function ListingPage({ params }) {
           <section className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
             <h2 className="text-lg font-semibold">Seller</h2>
             <Link href={`/users/${listing.seller_id}`} className="font-medium text-primary hover:underline">
-              {seller.full_name || listing.seller_name}
+              {seller.display_name || listing.seller_name}
             </Link>
             <p className="text-sm text-muted-foreground">{seller.city || listing.seller_city}, BC</p>
             <p className="text-sm">

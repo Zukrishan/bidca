@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth, API, formatApiErrorDetail } from "../App";
 import Navbar from "../components/layout/Navbar";
+import Turnstile from "../components/auth/Turnstile";
+import PhoneVerify from "../components/auth/PhoneVerify";
+import { uploadImage } from "../lib/upload";
 import axios from "axios";
 import {
   Gavel,
@@ -9,6 +12,7 @@ import {
   Lock,
   User,
   MapPin,
+  Phone,
   ArrowRight,
   Warning
 } from "@phosphor-icons/react";

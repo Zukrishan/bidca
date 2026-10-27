@@ -93,12 +93,12 @@ export default function UserProfile() {
           <div className="bg-white border border-border p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex items-center justify-center w-24 h-24 bg-secondary text-white font-heading font-bold text-3xl flex-shrink-0">
-                {profile.full_name?.charAt(0) || 'U'}
+                {profile.display_name?.charAt(0) || 'U'}
               </div>
               
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="font-heading text-2xl font-bold">{profile.full_name}</h1>
+                  <h1 className="font-heading text-2xl font-bold">{profile.display_name}</h1>
                   {profile.verification_badge && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary text-white text-xs font-bold">
                       <ShieldCheck className="h-4 w-4" weight="fill" />

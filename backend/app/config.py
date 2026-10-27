@@ -15,3 +15,12 @@ def frontend_origin() -> str:
 def login_lockout() -> timedelta:
     """How long 5 failed logins lock an account (FR-02; source: 12 h)."""
     return timedelta(hours=float(os.environ.get("LOGIN_LOCKOUT_HOURS") or "12"))
+
+
+def is_production() -> bool:
+    return os.environ.get("ENV", "").lower() == "production"
+
+
+def inactivity_logout() -> timedelta:
+    """Sign a user out after this long without activity (FR-02; Q010 default: 30 min)."""
+    return timedelta(minutes=float(os.environ.get("INACTIVITY_LOGOUT_MINUTES") or "30"))

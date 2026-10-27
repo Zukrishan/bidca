@@ -45,6 +45,10 @@ async def startup():
     
     await _seed_admin()
 
+    # Phase 9d: production keys check (Q011), phone index, display-name backfill
+    from app.accounts import accounts_startup
+    await accounts_startup()
+
     # Start background auction closer
     from app.closer import start_closer
     start_closer(db, sio)

@@ -13,7 +13,7 @@ export default function Footer() {
               <img src="/logo_bidca.jpeg" alt="BidCa.ca" className="h-10 brightness-0 invert" />
             </div>
             <p className="text-gray-400 text-sm mb-4 max-w-sm">
-              British Columbia's trusted local auction platform. Buy and sell with confidence in your community.
+              British Columbia's local auction platform. BidCa never handles payments — buyers and sellers exchange in person.
             </p>
             <div className="flex items-center gap-2 text-gray-400 text-sm">
               <MapPin className="h-4 w-4" />
@@ -37,35 +37,27 @@ export default function Footer() {
                   Start Selling
                 </Link>
               </li>
-              <li>
-                <Link to="/verification" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  Get Verified
-                </Link>
-              </li>
             </ul>
           </div>
 
-          {/* Support */}
+          {/* About BidCa — prominent, not buried (FR-33). These pages live in the Next.js app: plain <a>. */}
           <div>
             <h4 className="font-heading font-bold text-sm uppercase tracking-wider mb-4">
-              Support
+              About BidCa
             </h4>
-            <ul className="space-y-2">
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  How It Works
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  Safety Tips
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  Contact Us
-                </a>
-              </li>
+            <ul className="space-y-2" data-testid="footer-info-links">
+              {[
+                ["/how-it-works", "How It Works"],
+                ["/terms", "Terms of Service"],
+                ["/privacy", "Privacy Policy"],
+                ["/about", "About Us"],
+              ].map(([href, label]) => (
+                <li key={href}>
+                  <a href={href} className="text-white font-medium hover:underline text-sm transition-colors">
+                    {label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

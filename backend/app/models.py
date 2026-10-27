@@ -8,9 +8,32 @@ class UserRegister(BaseModel):
     city: str
     postal_code: str
     province: str = "British Columbia"
+    # Phase 9d (FR-01)
+    phone: str
+    age_confirmed_19_plus: bool
+    terms_accepted: bool
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    captcha_token: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
+    password: str
+    captcha_token: Optional[str] = None
+
+class PhoneSendCode(BaseModel):
+    phone: Optional[str] = None  # omit to resend to the number already on the account
+
+class PhoneVerify(BaseModel):
+    code: str
+
+class AccountUpdate(BaseModel):
+    display_name: Optional[str] = None
+    city: Optional[str] = None
+    avatar_url: Optional[str] = None  # "" removes the picture
+    exchange_methods: Optional[List[Literal["cash_on_pickup", "e_transfer", "meet_public"]]] = None
+
+class AccountDelete(BaseModel):
     password: str
 
 class AuctionCreate(BaseModel):

@@ -9,7 +9,6 @@ import {
   MagnifyingGlass,
   Bell,
   Plus,
-  ShieldCheck,
   Gear,
   Heart,
   User,
@@ -131,11 +130,8 @@ export default function Navbar() {
                     data-testid="user-menu-btn"
                   >
                     <div className="w-8 h-8 bg-secondary text-white flex items-center justify-center font-bold text-sm">
-                      {user?.full_name?.charAt(0) || 'U'}
+                      {(user?.display_name || user?.full_name)?.charAt(0) || 'U'}
                     </div>
-                    {user?.verification_badge && (
-                      <ShieldCheck className="h-4 w-4 text-primary" weight="fill" />
-                    )}
                     <CaretDown className="h-4 w-4 text-muted-foreground" />
                   </button>
 
@@ -147,7 +143,7 @@ export default function Navbar() {
                       />
                       <div className="absolute right-0 mt-2 w-56 bg-white border border-border shadow-lg z-50">
                         <div className="p-3 border-b border-border">
-                          <p className="font-medium truncate">{user?.full_name}</p>
+                          <p className="font-medium truncate">{user?.display_name || user?.full_name}</p>
                           <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
                         </div>
                         <div className="py-2">
@@ -175,13 +171,22 @@ export default function Navbar() {
                             <Heart className="h-4 w-4" />
                             Watchlist
                           </Link>
-                          <Link
-                            to="/verification"
-                            onClick={() => setShowUserMenu(false)}
+                          {/* ID verification is hidden for launch (Q009); the public profile is a web page, so a plain <a> */}
+                          <a
+                            href={`/users/${user?._id || user?.id}`}
                             className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors"
                           >
-                            <ShieldCheck className="h-4 w-4" />
-                            Verification
+                            <User className="h-4 w-4" />
+                            My Profile
+                          </a>
+                          <Link
+                            to="/account"
+                            onClick={() => setShowUserMenu(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors"
+                            data-testid="account-settings-link"
+                          >
+                            <Gear className="h-4 w-4" />
+                            Account Settings
                           </Link>
                           {user?.role === "admin" && (
                             <Link

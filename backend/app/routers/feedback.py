@@ -5,6 +5,7 @@ from bson import ObjectId
 from app.db import db
 from app.security import get_current_user
 from app.models import FeedbackCreate
+from app.accounts import public_name
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def leave_feedback(transaction_id: str, feedback: FeedbackCreate, user: di
         "transaction_id": transaction_id,
         "listing_id": transaction["listing_id"],
         "from_user_id": user["_id"],
-        "from_user_name": user["full_name"],
+        "from_user_name": public_name(user),
         "to_user_id": target_id,
         "rating": feedback.rating,
         "comment": feedback.comment,
