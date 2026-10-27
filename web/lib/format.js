@@ -41,10 +41,12 @@ export const LISTING_TYPE_LABELS = {
   auction: "Auction",
   fixed_price: "Buy now",
   auction_bin: "Auction + Buy now",
+  private: "Private auction",
 };
 
+/** Auctions take bids; a private listing is an invite-only auction (FR-31). */
 export function isAuction(listing) {
-  return listing.listing_type === "auction" || listing.listing_type === "auction_bin";
+  return ["auction", "auction_bin", "private"].includes(listing.listing_type);
 }
 
 /** The price a card should lead with: current bid for auctions, Buy-now price otherwise. */

@@ -11,13 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Gallery } from "@/components/listing/Gallery";
 import { BidPanel } from "@/components/listing/BidPanel";
 import { ReportForm } from "@/components/listing/ReportForm";
+import { VehicleChecklistLink } from "@/components/listing/VehicleChecklistLink";
 import { apiGet } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { CONDITION_LABELS, LISTING_TYPE_LABELS, formatCAD, formatDate, formatDateTime, headlinePrice, isAuction } from "@/lib/format";
+import { categoryFieldRows, disclosureRows, isVehicleListing } from "@/lib/vehicle";
 
 const PUBLIC_STATUSES = ["active", "ended", "sold", "unsold"];
 
-/** Public fetch first; sellers/admins get a second, cookie-authenticated try for pending/rejected listings. */
+/** Public fetch first; sellers/admins (pending, draft, ...) and private-listing invitees get a second,
+ * cookie-authenticated try. */
 const loadListing = cache(async (id) => {
   const path = `/listings/${encodeURIComponent(id)}`;
   // Bid state must be live (a refresh after a bid or socket event has to show it), so no data cache.
@@ -44,7 +47,9 @@ export async function generateMetadata({ params }) {
     title: listing.title,
     description,
     alternates: { canonical: `/auctions/${id}` },
-    robots: PUBLIC_STATUSES.includes(listing.status) ? undefined : { index: false, follow: false },
+    // Private listings (FR-31) and unapproved ones are never indexed
+    robots: PUBLIC_STATUSES.includes(listing.status) && listing.listing_type !== "private"
+      ? undefined : { index: false, follow: false },
     openGraph: { title: listing.title, description, type: "website", url: `/auctions/${id}`, images: image ? [image] : undefined },
     twitter: { card: "summary_large_image", title: listing.title, description, images: image ? [image] : undefined },
   };
@@ -67,6 +72,14 @@ export default async function ListingPage({ params }) {
 
   const auction = isAuction(listing);
   const isPublic = PUBLIC_STATUSES.includes(listing.status);
+  const isPrivate = listing.listing_type === "private";
+  const vehicle = isVehicleListing(listing);
+  const disclosure = vehicle ? disclosureRows(listing.vehicle_disclosure) : [];
+  const STATUS_NOTE = {
+    draft: "Draft — only you can see this. Finish and submit it from your seller dashboard.",
+    cancelled: "Cancelled — only you can see this",
+    rejected: "Not approved — only you can see this",
+  };
   const seller = listing.seller_info || {};
   const url = `${SITE_URL}/auctions/${id}`;
   const category = listing.category;
@@ -106,6 +119,7 @@ export default async function ListingPage({ params }) {
   const details = [
     ["Condition", CONDITION_LABELS[listing.condition] || listing.condition],
     ["Category", [listing.category, listing.subcategory].filter(Boolean).join(" › ")],
+    ...categoryFieldRows(listing.category_fields),
     ["Listed", formatDate(listing.created_at)],
     auction && listing.end_time ? ["Ends", formatDateTime(listing.end_time)] : null,
     ["Views", listing.views_count ?? 0],
@@ -113,12 +127,22 @@ export default async function ListingPage({ params }) {
 
   return (
     <div className="flex flex-col gap-8 pb-24 lg:pb-0">{/* room for the sticky mobile bid bar */}
-      <JsonLd data={productLd} />
-      <JsonLd data={breadcrumbLd} />
+      {/* No structured data for invite-only listings: they must never be indexed (FR-31) */}
+      {!isPrivate && <JsonLd data={productLd} />}
+      {!isPrivate && <JsonLd data={breadcrumbLd} />}
 
       {!isPublic && (
         <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm">
-          Pending review — only you can see this
+          {STATUS_NOTE[listing.status] || "Pending review — only you can see this"}
+        </p>
+      )}
+      {isPrivate && (
+        <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm">
+          Private listing — only people the seller invited can see it and bid. It is not shown in search
+          or on the home page, and it has no ratings.
+          {listing.invite_token && (
+            <> Manage invites from your <a href="/seller" className="font-medium text-primary hover:underline">seller dashboard</a>.</>
+          )}
         </p>
       )}
 
@@ -150,6 +174,7 @@ export default async function ListingPage({ params }) {
             </p>
           </div>
           <BidPanel listing={listing} />
+          <VehicleChecklistLink listing={listing} />
         </div>
       </div>
 
@@ -171,6 +196,31 @@ export default async function ListingPage({ params }) {
               ))}
             </dl>
           </section>
+
+          {vehicle && (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-lg font-semibold">Seller&apos;s vehicle disclosure</h2>
+              {disclosure.length === 0 ? (
+                <p className="text-sm text-muted-foreground">The seller hasn&apos;t answered the vehicle questions.</p>
+              ) : (
+                <dl className="divide-y divide-border rounded-lg border border-border bg-surface text-sm">
+                  {disclosure.map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-4 px-4 py-2.5">
+                      <dt className="text-muted-foreground">{k}</dt>
+                      <dd className="text-right">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {listing.vehicle_disclosure?.safety_certificate_url && (
+                <a href={listing.vehicle_disclosure.safety_certificate_url} target="_blank" rel="noopener nofollow"
+                   className="text-sm font-medium text-primary hover:underline">View the inspection / safety certificate</a>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Answers are the seller&apos;s own. BidCa doesn&apos;t inspect vehicles — check for yourself, using the checklist.
+              </p>
+            </section>
+          )}
 
           {auction && (
             <section className="flex flex-col gap-2">
@@ -209,7 +259,7 @@ export default async function ListingPage({ params }) {
               {seller.total_sales ?? 0} sales{seller.member_since ? ` · Member since ${formatDate(seller.member_since)}` : ""}
             </p>
           </section>
-          {isPublic && <ReportForm listingId={id} />}
+          {isPublic && !isPrivate && <ReportForm listingId={id} />}
         </aside>
       </div>
 

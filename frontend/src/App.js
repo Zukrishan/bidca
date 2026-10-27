@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import CreateListing from "./pages/CreateListing";
+import AcceptInvite from "./pages/AcceptInvite";
 import AuctionDetail from "./pages/AuctionDetail";
 import BrowseAuctions from "./pages/BrowseAuctions";
 import Verification from "./pages/Verification";
@@ -169,6 +170,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CreateListing />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/invite/:token"
+            element={
+              <ProtectedRoute>
+                <AcceptInvite />
               </ProtectedRoute>
             }
           />
